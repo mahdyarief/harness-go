@@ -1,0 +1,83 @@
+# HSG foundation stack — staging untuk uji user.
+# Satu container menyajikan SPA dan API (SPA di-embed ke binary).
+# Cloudflare Tunnel memetakan hsg dan api-hsg.aspirecx.my.id ke sini.
+name: hsg-deploy
+
+services:
+  db:
+    image: hsg-postgres-pgvector:18.6-0.8.1
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hsg
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: hsg
+    volumes:
+      # postgres:18 keeps major-versioned dirs, so the mount is the parent.
+      - db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hsg -d hsg"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    image: hsg-app:dev
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file:
+      - ./hsg.env
+    environment:
+      DB_DSN: postgres://hsg:${POSTGRES_PASSWORD}@db:5432/hsg?sslmode=disable
+      TENANT_DB_DSN: postgres://hsg_tenant:${TENANT_DB_PASSWORD}@db:5432/hsg?sslmode=disable
+      KB_STORAGE_DIR: /data/kb
+    volumes:
+      # File asli knowledge base. Volume baru mewarisi pemilik /data/kb dari
+      # image (65532, nonroot). Jangan `down -v`: file hilang dan tidak ada di DB.
+      - kb_data:/data/kb
+    # 127.0.0.1 saja: satu-satunya jalur masuk adalah tunnel.
+    ports:
+      - "127.0.0.1:8432:8080"
+
+  embedding:
+    image: hsg-embedding:local
+    build:
+      context: ./embedding
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      EMBEDDING_MODEL_REVISION: ${EMBEDDING_MODEL_REVISION}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY}
+      EMBEDDING_MAX_CONCURRENCY: ${EMBEDDING_MAX_CONCURRENCY:-1}
+      EMBEDDING_CACHE_DIR: /models
+    volumes:
+      # Model bge-m3 yang sudah diunduh pada revision yang sama: read-only agar
+      # container tidak pernah mengubahnya.
+      - embedding_cache:/models:ro
+    # Hanya jaringan internal compose: tidak dipetakan ke host.
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 30s
+      timeout: 3s
+      start_period: 120s
+      retries: 3
+
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    command: ["tunnel", "--no-autoupdate", "run"]
+
+volumes:
+  db_data:
+  kb_data:
+  embedding_cache:

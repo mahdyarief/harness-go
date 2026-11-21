@@ -1,0 +1,34 @@
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+
+# Salinan worktree agen dan state tool lokal (berlaku di semua level, bukan
+# hanya root: web/.omc/, server/.openclaude/, dsb).
+/.openclaude/
+**/.openclaude/
+/.omc/
+**/.omc/
+/server/.omc/
+
+# Dependensi, hasil build, dan credential lokal.
+.env
+.env.*
+hsg.env
+!.env.example
+.secret
+.secret.*
+web/node_modules/
+web/dist/
+web/.tanstack/
+web/tsconfig.tsbuildinfo
+web/*.local
+server/node_modules/
+server/bin/
+server/internal/web/dist/*
+!server/internal/web/dist/.gitkeep
+# Staging dir for deploy/scripts/release-fast.sh.
+server/.release/
+# Penyimpanan file knowledge base lokal (KB_STORAGE_DIR default ./data/kb).
+server/data/
+# Binary hasil `go build`.
+/server/api
+*.log

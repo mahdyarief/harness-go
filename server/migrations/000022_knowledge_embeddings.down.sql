@@ -1,0 +1,20 @@
+DROP FUNCTION IF EXISTS knowledge_embedding_serving();
+DROP FUNCTION IF EXISTS knowledge_embedding_status(uuid,uuid);
+DROP FUNCTION IF EXISTS knowledge_embedding_retry(uuid,uuid);
+DROP FUNCTION IF EXISTS knowledge_embedding_worker_config(uuid,bigint);
+DROP TRIGGER IF EXISTS knowledge_embedding_enqueue ON knowledge_chunks;
+DROP FUNCTION IF EXISTS knowledge_embedding_enqueue();
+DROP FUNCTION IF EXISTS knowledge_embedding_claim();
+DROP FUNCTION IF EXISTS knowledge_embedding_commit(uuid,bigint,jsonb);
+DROP FUNCTION IF EXISTS knowledge_embedding_read(uuid,bigint);
+DROP FUNCTION IF EXISTS knowledge_embedding_fail(uuid,bigint,text);
+DROP POLICY IF EXISTS embedding_executor_document_lock ON knowledge_documents;
+DROP POLICY IF EXISTS embedding_executor_documents ON knowledge_documents;
+DROP POLICY IF EXISTS embedding_executor_chunks ON knowledge_chunks;
+DROP TABLE IF EXISTS knowledge_chunk_embeddings;
+DROP TABLE IF EXISTS knowledge_embedding_jobs;
+DROP TABLE IF EXISTS knowledge_embedding_config;
+DROP TABLE IF EXISTS knowledge_embedding_profiles;
+DROP FUNCTION IF EXISTS knowledge_embedding_scope();
+DROP FUNCTION IF EXISTS knowledge_embedding_profile_immutable();
+-- Cluster roles and the vector extension may be shared by other databases.

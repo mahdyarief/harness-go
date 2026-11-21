@@ -1,0 +1,26 @@
+# Local development only: the PostgreSQL credentials below are public defaults.
+# Do not expose this service or use these credentials in production.
+services:
+  postgres:
+    image: hsg-postgres-pgvector:18.6-0.8.1
+    build:
+      context: ./deploy
+      dockerfile: Dockerfile.postgres
+    container_name: hsg-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hsg
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - hsg-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d hsg"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  hsg-pgdata:

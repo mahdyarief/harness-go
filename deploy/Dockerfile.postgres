@@ -1,0 +1,15 @@
+FROM postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5 AS builder
+
+ARG PGVECTOR_REVISION=778dacf20c07caf904557a88705142631818d8cb
+RUN apk add --no-cache build-base git \
+    && git init /tmp/pgvector \
+    && git -C /tmp/pgvector remote add origin https://github.com/pgvector/pgvector.git \
+    && git -C /tmp/pgvector fetch --depth=1 origin "$PGVECTOR_REVISION" \
+    && git -C /tmp/pgvector checkout --detach FETCH_HEAD \
+    && test "$(git -C /tmp/pgvector rev-parse HEAD)" = "$PGVECTOR_REVISION" \
+    && make -C /tmp/pgvector OPTFLAGS="" with_llvm=no \
+    && make -C /tmp/pgvector install DESTDIR=/pgvector with_llvm=no
+
+FROM postgres:18-alpine@sha256:10a5c69a83035ab5239f5620d708520e8b28f5aa1f2b20143e6024532edadfb5
+COPY --from=builder /pgvector/usr/local/ /usr/local/
+COPY --from=builder /tmp/pgvector/LICENSE /usr/share/licenses/pgvector/LICENSE

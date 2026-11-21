@@ -1,0 +1,533 @@
+{
+  "fixture_id": "synthetic-kb-v1",
+  "run_id": "disposable-sql-bounded5-dev",
+  "split": "dev",
+  "provenance": "Actual local PostgreSQL repository Search, limit=5; synthetic generated qrels; answered flag means nonempty retrieval, not LLM answer",
+  "results": [
+    {
+      "query_id": "q001-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q001-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q001-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q001-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q001-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q001-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q002-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q002-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q002-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q002-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q002-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q002-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q003-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q003-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q003-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q003-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q003-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q003-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q004-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q004-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q004-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q004-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q004-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q004-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q005-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q005-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q005-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q005-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q005-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q005-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q006-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q006-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q006-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q006-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q006-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q006-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q007-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q007-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q007-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q007-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q007-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q007-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q008-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q008-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q008-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q008-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q008-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q008-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q009-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q009-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q009-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q009-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q009-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q009-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q010-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q010-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q010-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q010-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q010-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q010-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q011-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q011-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q011-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q011-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q011-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q011-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q012-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q012-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q012-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q012-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q012-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q012-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q013-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q013-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q013-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q013-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q013-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q013-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q014-exact_term",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q014-paraphrase_id",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q014-mixed_language",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q014-table",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q014-multi_source",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "q014-ambiguous",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na001",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na002",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na003",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na004",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na005",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na006",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na007",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na008",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na009",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na010",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na011",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na012",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na013",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na014",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na015",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na016",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na017",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na018",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na019",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na020",
+      "answered": false,
+      "candidates": null
+    },
+    {
+      "query_id": "na021",
+      "answered": false,
+      "candidates": null
+    }
+  ]
+}

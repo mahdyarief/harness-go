@@ -1,0 +1,25 @@
+# syntax=docker/dockerfile:1
+
+# Runtime-only image for the fast local deploy path (deploy/scripts/release-fast.sh).
+# The SPA is already embedded in the API binary by `go build`, and both binaries
+# are cross-compiled on the host, so this file only assembles the final layer.
+#
+# Build context is a staging directory holding `api` and `migrate`:
+#   docker build -f server/Dockerfile.runtime <staging-dir>
+#
+# Use server/Dockerfile for a reproducible from-source build (CI, another machine).
+
+# Empty directory made without a shell or any extra base image pull.
+FROM scratch AS kbdir
+WORKDIR /kb
+
+FROM gcr.io/distroless/static-debian12:nonroot
+WORKDIR /app
+
+COPY api migrate ./
+# 65532:65532 is distroless "nonroot". A named volume mounted at /data/kb
+# inherits this ownership when it is first created.
+COPY --from=kbdir --chown=65532:65532 --chmod=0700 /kb /data/kb
+
+EXPOSE 8080
+ENTRYPOINT ["/app/api"]

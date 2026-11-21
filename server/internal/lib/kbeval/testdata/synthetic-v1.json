@@ -1,0 +1,2489 @@
+{
+  "scope": "global",
+  "id": "synthetic-kb-v1",
+  "provenance": "machine-generated synthetic templates; NOT human ground truth; fictional equipment rules, no patient data; generator generate.py v1",
+  "chunks": [
+    {
+      "id": "c001a",
+      "document_id": "manual-001",
+      "text": "Manual VX-001: periksa filter setiap 21 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c001b",
+      "document_id": "manual-001",
+      "text": "Tabel VX-001: mode | daya watt; siaga | 1; aktif | 10.",
+      "scope": "global"
+    },
+    {
+      "id": "c001c",
+      "document_id": "bulletin-001",
+      "text": "Buletin VX-001: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c002a",
+      "document_id": "manual-002",
+      "text": "Manual VX-002: periksa filter setiap 22 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c002b",
+      "document_id": "manual-002",
+      "text": "Tabel VX-002: mode | daya watt; siaga | 2; aktif | 20.",
+      "scope": "global"
+    },
+    {
+      "id": "c002c",
+      "document_id": "bulletin-002",
+      "text": "Buletin VX-002: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c003a",
+      "document_id": "manual-003",
+      "text": "Manual VX-003: periksa filter setiap 23 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c003b",
+      "document_id": "manual-003",
+      "text": "Tabel VX-003: mode | daya watt; siaga | 3; aktif | 30.",
+      "scope": "global"
+    },
+    {
+      "id": "c003c",
+      "document_id": "bulletin-003",
+      "text": "Buletin VX-003: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c004a",
+      "document_id": "manual-004",
+      "text": "Manual VX-004: periksa filter setiap 24 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c004b",
+      "document_id": "manual-004",
+      "text": "Tabel VX-004: mode | daya watt; siaga | 4; aktif | 40.",
+      "scope": "global"
+    },
+    {
+      "id": "c004c",
+      "document_id": "bulletin-004",
+      "text": "Buletin VX-004: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c005a",
+      "document_id": "manual-005",
+      "text": "Manual VX-005: periksa filter setiap 25 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c005b",
+      "document_id": "manual-005",
+      "text": "Tabel VX-005: mode | daya watt; siaga | 5; aktif | 50.",
+      "scope": "global"
+    },
+    {
+      "id": "c005c",
+      "document_id": "bulletin-005",
+      "text": "Buletin VX-005: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c006a",
+      "document_id": "manual-006",
+      "text": "Manual VX-006: periksa filter setiap 26 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c006b",
+      "document_id": "manual-006",
+      "text": "Tabel VX-006: mode | daya watt; siaga | 6; aktif | 60.",
+      "scope": "global"
+    },
+    {
+      "id": "c006c",
+      "document_id": "bulletin-006",
+      "text": "Buletin VX-006: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c007a",
+      "document_id": "manual-007",
+      "text": "Manual VX-007: periksa filter setiap 27 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c007b",
+      "document_id": "manual-007",
+      "text": "Tabel VX-007: mode | daya watt; siaga | 7; aktif | 70.",
+      "scope": "global"
+    },
+    {
+      "id": "c007c",
+      "document_id": "bulletin-007",
+      "text": "Buletin VX-007: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c008a",
+      "document_id": "manual-008",
+      "text": "Manual VX-008: periksa filter setiap 28 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c008b",
+      "document_id": "manual-008",
+      "text": "Tabel VX-008: mode | daya watt; siaga | 8; aktif | 80.",
+      "scope": "global"
+    },
+    {
+      "id": "c008c",
+      "document_id": "bulletin-008",
+      "text": "Buletin VX-008: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c009a",
+      "document_id": "manual-009",
+      "text": "Manual VX-009: periksa filter setiap 29 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c009b",
+      "document_id": "manual-009",
+      "text": "Tabel VX-009: mode | daya watt; siaga | 9; aktif | 90.",
+      "scope": "global"
+    },
+    {
+      "id": "c009c",
+      "document_id": "bulletin-009",
+      "text": "Buletin VX-009: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c010a",
+      "document_id": "manual-010",
+      "text": "Manual VX-010: periksa filter setiap 30 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c010b",
+      "document_id": "manual-010",
+      "text": "Tabel VX-010: mode | daya watt; siaga | 10; aktif | 100.",
+      "scope": "global"
+    },
+    {
+      "id": "c010c",
+      "document_id": "bulletin-010",
+      "text": "Buletin VX-010: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c011a",
+      "document_id": "manual-011",
+      "text": "Manual VX-011: periksa filter setiap 31 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c011b",
+      "document_id": "manual-011",
+      "text": "Tabel VX-011: mode | daya watt; siaga | 11; aktif | 110.",
+      "scope": "global"
+    },
+    {
+      "id": "c011c",
+      "document_id": "bulletin-011",
+      "text": "Buletin VX-011: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c012a",
+      "document_id": "manual-012",
+      "text": "Manual VX-012: periksa filter setiap 32 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c012b",
+      "document_id": "manual-012",
+      "text": "Tabel VX-012: mode | daya watt; siaga | 12; aktif | 120.",
+      "scope": "global"
+    },
+    {
+      "id": "c012c",
+      "document_id": "bulletin-012",
+      "text": "Buletin VX-012: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c013a",
+      "document_id": "manual-013",
+      "text": "Manual VX-013: periksa filter setiap 33 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c013b",
+      "document_id": "manual-013",
+      "text": "Tabel VX-013: mode | daya watt; siaga | 13; aktif | 130.",
+      "scope": "global"
+    },
+    {
+      "id": "c013c",
+      "document_id": "bulletin-013",
+      "text": "Buletin VX-013: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c014a",
+      "document_id": "manual-014",
+      "text": "Manual VX-014: periksa filter setiap 34 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c014b",
+      "document_id": "manual-014",
+      "text": "Tabel VX-014: mode | daya watt; siaga | 14; aktif | 140.",
+      "scope": "global"
+    },
+    {
+      "id": "c014c",
+      "document_id": "bulletin-014",
+      "text": "Buletin VX-014: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c015a",
+      "document_id": "manual-015",
+      "text": "Manual VX-015: periksa filter setiap 35 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c015b",
+      "document_id": "manual-015",
+      "text": "Tabel VX-015: mode | daya watt; siaga | 15; aktif | 150.",
+      "scope": "global"
+    },
+    {
+      "id": "c015c",
+      "document_id": "bulletin-015",
+      "text": "Buletin VX-015: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c016a",
+      "document_id": "manual-016",
+      "text": "Manual VX-016: periksa filter setiap 36 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c016b",
+      "document_id": "manual-016",
+      "text": "Tabel VX-016: mode | daya watt; siaga | 16; aktif | 160.",
+      "scope": "global"
+    },
+    {
+      "id": "c016c",
+      "document_id": "bulletin-016",
+      "text": "Buletin VX-016: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c017a",
+      "document_id": "manual-017",
+      "text": "Manual VX-017: periksa filter setiap 37 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c017b",
+      "document_id": "manual-017",
+      "text": "Tabel VX-017: mode | daya watt; siaga | 17; aktif | 170.",
+      "scope": "global"
+    },
+    {
+      "id": "c017c",
+      "document_id": "bulletin-017",
+      "text": "Buletin VX-017: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c018a",
+      "document_id": "manual-018",
+      "text": "Manual VX-018: periksa filter setiap 38 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c018b",
+      "document_id": "manual-018",
+      "text": "Tabel VX-018: mode | daya watt; siaga | 18; aktif | 180.",
+      "scope": "global"
+    },
+    {
+      "id": "c018c",
+      "document_id": "bulletin-018",
+      "text": "Buletin VX-018: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c019a",
+      "document_id": "manual-019",
+      "text": "Manual VX-019: periksa filter setiap 39 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c019b",
+      "document_id": "manual-019",
+      "text": "Tabel VX-019: mode | daya watt; siaga | 19; aktif | 190.",
+      "scope": "global"
+    },
+    {
+      "id": "c019c",
+      "document_id": "bulletin-019",
+      "text": "Buletin VX-019: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    },
+    {
+      "id": "c020a",
+      "document_id": "manual-020",
+      "text": "Manual VX-020: periksa filter setiap 40 hari. Hentikan perangkat saat indikator merah.",
+      "scope": "global"
+    },
+    {
+      "id": "c020b",
+      "document_id": "manual-020",
+      "text": "Tabel VX-020: mode | daya watt; siaga | 20; aktif | 200.",
+      "scope": "global"
+    },
+    {
+      "id": "c020c",
+      "document_id": "bulletin-020",
+      "text": "Buletin VX-020: setelah indikator merah, teknisi harus mereset sensor sebelum restart.",
+      "scope": "global"
+    }
+  ],
+  "queries": [
+    {
+      "id": "q001-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-001?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c001a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q001-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-001, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c001a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q001-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-001 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c001a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c001c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q001-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-001?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c001b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q001-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-001: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c001a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c001c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q001-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-001?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c001a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c001b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c001c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q002-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-002?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c002a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q002-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-002, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c002a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q002-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-002 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c002a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c002c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q002-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-002?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c002b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q002-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-002: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c002a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c002c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q002-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-002?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c002a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c002b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c002c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q003-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-003?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c003a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q003-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-003, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c003a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q003-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-003 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c003a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c003c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q003-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-003?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c003b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q003-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-003: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c003a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c003c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q003-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-003?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c003a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c003b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c003c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q004-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-004?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c004a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q004-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-004, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c004a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q004-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-004 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c004a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c004c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q004-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-004?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c004b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q004-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-004: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c004a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c004c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q004-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-004?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c004a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c004b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c004c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q005-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-005?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c005a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q005-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-005, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c005a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q005-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-005 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c005a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c005c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q005-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-005?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c005b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q005-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-005: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c005a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c005c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q005-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-005?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c005a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c005b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c005c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q006-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-006?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c006a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q006-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-006, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c006a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q006-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-006 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c006a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c006c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q006-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-006?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c006b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q006-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-006: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c006a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c006c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q006-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-006?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c006a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c006b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c006c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q007-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-007?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c007a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q007-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-007, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c007a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q007-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-007 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c007a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c007c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q007-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-007?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c007b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q007-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-007: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c007a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c007c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q007-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-007?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c007a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c007b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c007c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q008-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-008?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c008a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q008-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-008, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c008a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q008-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-008 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c008a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c008c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q008-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-008?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c008b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q008-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-008: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c008a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c008c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q008-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-008?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c008a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c008b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c008c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q009-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-009?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c009a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q009-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-009, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c009a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q009-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-009 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c009a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c009c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q009-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-009?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c009b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q009-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-009: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c009a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c009c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q009-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-009?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c009a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c009b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c009c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q010-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-010?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c010a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q010-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-010, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c010a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q010-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-010 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c010a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c010c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q010-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-010?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c010b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q010-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-010: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c010a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c010c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q010-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-010?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c010a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c010b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c010c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q011-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-011?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c011a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q011-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-011, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c011a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q011-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-011 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c011a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c011c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q011-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-011?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c011b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q011-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-011: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c011a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c011c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q011-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-011?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c011a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c011b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c011c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q012-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-012?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c012a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q012-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-012, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c012a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q012-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-012 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c012a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c012c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q012-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-012?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c012b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q012-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-012: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c012a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c012c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q012-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-012?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c012a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c012b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c012c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q013-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-013?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c013a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q013-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-013, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c013a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q013-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-013 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c013a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c013c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q013-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-013?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c013b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q013-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-013: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c013a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c013c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q013-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-013?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c013a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c013b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c013c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q014-exact_term",
+      "split": "dev",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-014?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c014a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q014-paraphrase_id",
+      "split": "dev",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-014, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c014a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q014-mixed_language",
+      "split": "dev",
+      "category": "mixed_language",
+      "text": "How to stop VX-014 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c014a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c014c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q014-table",
+      "split": "dev",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-014?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c014b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q014-multi_source",
+      "split": "dev",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-014: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c014a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c014c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q014-ambiguous",
+      "split": "dev",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-014?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c014a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c014b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c014c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q015-exact_term",
+      "split": "heldout",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-015?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c015a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q015-paraphrase_id",
+      "split": "heldout",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-015, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c015a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q015-mixed_language",
+      "split": "heldout",
+      "category": "mixed_language",
+      "text": "How to stop VX-015 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c015a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c015c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q015-table",
+      "split": "heldout",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-015?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c015b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q015-multi_source",
+      "split": "heldout",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-015: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c015a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c015c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q015-ambiguous",
+      "split": "heldout",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-015?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c015a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c015b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c015c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q016-exact_term",
+      "split": "heldout",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-016?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c016a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q016-paraphrase_id",
+      "split": "heldout",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-016, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c016a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q016-mixed_language",
+      "split": "heldout",
+      "category": "mixed_language",
+      "text": "How to stop VX-016 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c016a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c016c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q016-table",
+      "split": "heldout",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-016?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c016b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q016-multi_source",
+      "split": "heldout",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-016: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c016a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c016c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q016-ambiguous",
+      "split": "heldout",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-016?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c016a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c016b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c016c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q017-exact_term",
+      "split": "heldout",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-017?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c017a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q017-paraphrase_id",
+      "split": "heldout",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-017, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c017a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q017-mixed_language",
+      "split": "heldout",
+      "category": "mixed_language",
+      "text": "How to stop VX-017 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c017a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c017c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q017-table",
+      "split": "heldout",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-017?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c017b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q017-multi_source",
+      "split": "heldout",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-017: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c017a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c017c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q017-ambiguous",
+      "split": "heldout",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-017?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c017a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c017b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c017c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q018-exact_term",
+      "split": "heldout",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-018?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c018a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q018-paraphrase_id",
+      "split": "heldout",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-018, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c018a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q018-mixed_language",
+      "split": "heldout",
+      "category": "mixed_language",
+      "text": "How to stop VX-018 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c018a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c018c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q018-table",
+      "split": "heldout",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-018?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c018b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q018-multi_source",
+      "split": "heldout",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-018: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c018a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c018c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q018-ambiguous",
+      "split": "heldout",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-018?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c018a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c018b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c018c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q019-exact_term",
+      "split": "heldout",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-019?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c019a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q019-paraphrase_id",
+      "split": "heldout",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-019, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c019a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q019-mixed_language",
+      "split": "heldout",
+      "category": "mixed_language",
+      "text": "How to stop VX-019 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c019a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c019c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q019-table",
+      "split": "heldout",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-019?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c019b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q019-multi_source",
+      "split": "heldout",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-019: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c019a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c019c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q019-ambiguous",
+      "split": "heldout",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-019?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c019a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c019b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c019c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "q020-exact_term",
+      "split": "heldout",
+      "category": "exact_term",
+      "text": "Apa interval pemeriksaan filter kode VX-020?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c020a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q020-paraphrase_id",
+      "split": "heldout",
+      "category": "paraphrase_id",
+      "text": "Untuk unit VX-020, berapa lama jeda mengecek penyaring?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c020a",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q020-mixed_language",
+      "split": "heldout",
+      "category": "mixed_language",
+      "text": "How to stop VX-020 saat red indicator menyala?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c020a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c020c",
+          "grade": 1
+        }
+      ]
+    },
+    {
+      "id": "q020-table",
+      "split": "heldout",
+      "category": "table",
+      "text": "Berapa watt mode aktif di tabel VX-020?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c020b",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q020-multi_source",
+      "split": "heldout",
+      "category": "multi_source",
+      "text": "Gabungkan manual dan buletin VX-020: tindakan indikator merah sampai restart?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c020a",
+          "grade": 3
+        },
+        {
+          "chunk_id": "c020c",
+          "grade": 3
+        }
+      ]
+    },
+    {
+      "id": "q020-ambiguous",
+      "split": "heldout",
+      "category": "ambiguous",
+      "text": "Bagaimana aturan operasi VX-020?",
+      "no_answer": false,
+      "labels": [
+        {
+          "chunk_id": "c020a",
+          "grade": 2
+        },
+        {
+          "chunk_id": "c020b",
+          "grade": 1
+        },
+        {
+          "chunk_id": "c020c",
+          "grade": 2
+        }
+      ]
+    },
+    {
+      "id": "na001",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-001 di wilayah fiksi 1?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na002",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-002 di wilayah fiksi 2?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na003",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-003 di wilayah fiksi 3?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na004",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-004 di wilayah fiksi 4?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na005",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-005 di wilayah fiksi 5?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na006",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-006 di wilayah fiksi 6?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na007",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-007 di wilayah fiksi 7?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na008",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-008 di wilayah fiksi 8?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na009",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-009 di wilayah fiksi 9?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na010",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-010 di wilayah fiksi 10?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na011",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-011 di wilayah fiksi 11?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na012",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-012 di wilayah fiksi 12?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na013",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-013 di wilayah fiksi 13?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na014",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-014 di wilayah fiksi 14?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na015",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-015 di wilayah fiksi 15?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na016",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-016 di wilayah fiksi 16?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na017",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-017 di wilayah fiksi 17?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na018",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-018 di wilayah fiksi 18?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na019",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-019 di wilayah fiksi 19?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na020",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-020 di wilayah fiksi 20?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na021",
+      "split": "dev",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-021 di wilayah fiksi 21?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na022",
+      "split": "heldout",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-022 di wilayah fiksi 22?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na023",
+      "split": "heldout",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-023 di wilayah fiksi 23?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na024",
+      "split": "heldout",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-024 di wilayah fiksi 24?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na025",
+      "split": "heldout",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-025 di wilayah fiksi 25?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na026",
+      "split": "heldout",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-026 di wilayah fiksi 26?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na027",
+      "split": "heldout",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-027 di wilayah fiksi 27?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na028",
+      "split": "heldout",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-028 di wilayah fiksi 28?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na029",
+      "split": "heldout",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-029 di wilayah fiksi 29?",
+      "no_answer": true,
+      "labels": []
+    },
+    {
+      "id": "na030",
+      "split": "heldout",
+      "category": "no_answer",
+      "text": "Berapa harga kontrak garansi perangkat ZQ-030 di wilayah fiksi 30?",
+      "no_answer": true,
+      "labels": []
+    }
+  ]
+}
