@@ -95,6 +95,37 @@ def check_loc(paths: list[str], rules: dict, repo_root: Path = REPO_ROOT) -> lis
     return issues
 
 
+COMMIT_RE = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^()]+)\))?: (?P<subject>.+)$")
+
+
+def check_message(path: Path, rules: dict) -> list[Issue]:
+    message = path.read_text(encoding="utf-8").strip()
+    first = message.splitlines()[0] if message else ""
+    if first.startswith(("Merge ", "Revert ", "fixup! ", "squash! ")):
+        return []
+    match = COMMIT_RE.match(first)
+    if not match or match.group("type") not in rules["commit_types"]:
+        return [
+            Issue(
+                "commit_message",
+                "<message>",
+                1,
+                f"expected 'type(scope): subject'; types: {', '.join(rules['commit_types'])}",
+            )
+        ]
+    subject = match.group("subject").strip()
+    if len(subject) < 3 or subject.endswith("."):
+        return [
+            Issue(
+                "commit_message",
+                "<message>",
+                1,
+                "subject must be at least 3 characters and must not end with a period",
+            )
+        ]
+    return []
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or args[0] in {"-h", "--help"}:

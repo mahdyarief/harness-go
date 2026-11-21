@@ -70,5 +70,38 @@ class LocTest(unittest.TestCase):
         self.assertEqual(issues, [])
 
 
+class MessageTest(unittest.TestCase):
+    rules = {"commit_types": ["feat", "fix", "docs", "chore"]}
+
+    def check(self, message: str):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "COMMIT_EDITMSG"
+            path.write_text(message, encoding="utf-8")
+            return checker.check_message(path, self.rules)
+
+    def test_valid_type_scope_subject(self):
+        self.assertEqual(self.check("feat(harness): add resolver\n"), [])
+
+    def test_valid_type_only(self):
+        self.assertEqual(self.check("fix: correct truncation\n"), [])
+
+    def test_unknown_type_fails(self):
+        issues = self.check("wip: something\n")
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(issues[0].category, "commit_message")
+
+    def test_short_subject_fails(self):
+        self.assertEqual(len(self.check("feat: ab\n")), 1)
+
+    def test_trailing_period_fails(self):
+        self.assertEqual(len(self.check("feat: add thing.\n")), 1)
+
+    def test_merge_commit_is_skipped(self):
+        self.assertEqual(self.check("Merge branch 'main' into x\n"), [])
+
+    def test_fixup_is_skipped(self):
+        self.assertEqual(self.check("fixup! feat: add thing\n"), [])
+
+
 if __name__ == "__main__":
     unittest.main()
