@@ -23,30 +23,40 @@ func (l *defaultLoop) compactTo(ctx context.Context, history []ai.Message, specs
 }
 
 // forceCompact ignores the local estimate: the provider already reported an
-// overflow, so it must shed history even if the local meter disagrees. It keeps
-// the system prompt, the first user message and the two most recent complete
-// tool pairs, which always leaves a pairing-safe history.
+// overflow, so it must shed history even if the local meter disagrees. It keeps,
+// in order, the system prompt, the first user message, and a suffix that starts
+// at the second most recent tool-calling assistant message (or, with fewer
+// than two, at the latest user message). A suffix starting at an assistant or
+// user message always carries every tool result it needs, so pairing holds.
 func (l *defaultLoop) forceCompact(ctx context.Context, history []ai.Message, specs []ai.ToolSpec, cfg services.LoopConfig, cap int, compacted *int, sink services.Sink) []ai.Message {
 	if ctx.Err() != nil || len(history) <= 3 {
 		return history
 	}
-	head := 0
+	keepHead := 1
 	if history[0].Role == "system" {
-		head = 1
+		keepHead = 2
 	}
-	out := append([]ai.Message(nil), history[:head+1]...)
-	pairs := 0
-	for i := len(history) - 1; i > head && pairs < 2; i-- {
-		out = append([]ai.Message{history[i]}, out...)
-		if history[i].Role == "tool" && i > head && len(history[i-1].ToolCalls) > 0 {
-			out = append([]ai.Message{history[i-1]}, out...)
-			pairs++
-			i--
+	start, lastUser, groups := -1, -1, 0
+	for i := len(history) - 1; i >= keepHead; i-- {
+		msg := history[i]
+		if msg.Role == "user" && lastUser < 0 {
+			lastUser = i
+		}
+		if msg.Role == "assistant" && len(msg.ToolCalls) > 0 {
+			groups++
+			if groups == 2 {
+				start = i
+				break
+			}
 		}
 	}
-	if len(out) >= len(history) {
+	if start < 0 {
+		start = lastUser
+	}
+	if start <= keepHead {
 		return history
 	}
+	out := append(append([]ai.Message(nil), history[:keepHead]...), history[start:]...)
 	*compacted += len(history) - len(out)
 	emitCompaction(sink, 0, len(history)-len(out))
 	return out
@@ -79,7 +89,7 @@ func (l *defaultLoop) compactContext(ctx context.Context, history []ai.Message, 
 		start--
 	}
 	for {
-		out := append([]ai.Message(nil), cleared[:min(start, len(cleared))]...)
+		out := append([]ai.Message(nil), cleared[:head]...)
 		if start < len(cleared) {
 			out = append(out, cleared[start:]...)
 		}
