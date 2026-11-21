@@ -8,6 +8,8 @@ import (
 	"hsg/internal/harness/agentloop"
 	"hsg/internal/harness/core"
 	"hsg/internal/harness/llm"
+	"hsg/internal/harness/preset"
+	"hsg/internal/harness/sandbox"
 	"hsg/internal/harness/scope"
 	"hsg/internal/harness/services"
 	"hsg/internal/harness/tools"
@@ -18,6 +20,8 @@ import (
 type MountConfig struct {
 	LoopConfig services.LoopConfig
 	LoopGuards []services.LoopGuard
+	Preset     string
+	Sandbox    sandbox.Config
 }
 
 func Mount(gw *ai.Gateway, registry *agent.Registry, cfg MountConfig) (*scope.Scope, error) {
@@ -33,7 +37,31 @@ func Mount(gw *ai.Gateway, registry *agent.Registry, cfg MountConfig) (*scope.Sc
 	if err := s.Provide(services.LoopConfigKey, resolved, nil); err != nil {
 		return nil, err
 	}
-	if err := s.Provide(services.ToolsKey, tools.Adapt(registry), nil); err != nil {
+	presetName := cfg.Preset
+	if presetName == "" {
+		presetName = "read-only"
+	}
+	spec, ok := preset.Get(presetName)
+	if !ok {
+		return nil, preset.ErrUnknown
+	}
+	sandboxCfg := cfg.Sandbox
+	if sandboxCfg.Mode == "" {
+		sandboxCfg.Mode = spec.SandboxMode
+	}
+	if err := sandbox.Validate(sandboxCfg); err != nil {
+		return nil, err
+	}
+	if err := s.Provide(services.SandboxKey, sandboxCfg.EffectiveMode(), nil); err != nil {
+		return nil, err
+	}
+	if err := s.Provide(services.ApprovalKey, spec.Approval, nil); err != nil {
+		return nil, err
+	}
+	if err := s.Provide(services.ToolAllowlistKey, spec.ToolAllowlist, nil); err != nil {
+		return nil, err
+	}
+	if err := s.Provide(services.ToolsKey, tools.WrapTools(s, tools.Adapt(registry), resolved), nil); err != nil {
 		return nil, err
 	}
 	if err := s.Provide(services.AgentLoopKey, services.AgentLoop(agentloop.New(s)), nil); err != nil {

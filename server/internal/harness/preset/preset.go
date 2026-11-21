@@ -21,6 +21,19 @@ var presets = map[string]Spec{
 	"strict":    {SandboxMode: "read-only", Approval: "ask"},
 }
 
+func Get(name string) (Spec, bool) {
+	spec, ok := presets[name]
+	return spec, ok
+}
+
+func SpecFor(name string) Spec {
+	spec, _ := Get(name)
+	if spec.SandboxMode == "" {
+		return presets["read-only"]
+	}
+	return spec
+}
+
 func Apply(s *scope.Scope, name string) error {
 	spec, ok := presets[name]
 	if !ok {
@@ -29,5 +42,8 @@ func Apply(s *scope.Scope, name string) error {
 	if err := s.Provide(services.SandboxKey, spec.SandboxMode, nil); err != nil {
 		return err
 	}
-	return s.Provide(services.ApprovalKey, spec.Approval, nil)
+	if err := s.Provide(services.ApprovalKey, spec.Approval, nil); err != nil {
+		return err
+	}
+	return s.Provide(services.ToolAllowlistKey, spec.ToolAllowlist, nil)
 }

@@ -9,6 +9,7 @@ import (
 	"hsg/internal/harness/agentloop"
 	"hsg/internal/harness/scope"
 	"hsg/internal/harness/services"
+	"hsg/internal/harness/tools"
 	"hsg/internal/lib/ai"
 )
 
@@ -135,7 +136,8 @@ func TestToolBeforeGuardCanDenyInvocation(t *testing.T) {
 	if err := s.Provide(services.LLMKey, services.LLM(&denyGuardLLM{}), nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Provide(services.ToolsKey, services.Tools(staticTools{tool: tool}), nil); err != nil {
+	wrapped := tools.WrapTools(s, staticTools{tool: tool}, services.LoopConfig{})
+	if err := s.Provide(services.ToolsKey, wrapped, nil); err != nil {
 		t.Fatal(err)
 	}
 	scope.On(s, "tool.before", func(ev *scope.Event[services.GuardDecision]) error {
@@ -152,7 +154,7 @@ func TestToolBeforeGuardCanDenyInvocation(t *testing.T) {
 	if tool.executed {
 		t.Fatal("tool ran despite denial")
 	}
-	if len(out.Tools) != 1 || out.Tools[0].Err != "denied" {
+	if len(out.Tools) != 1 || out.Tools[0].Err != "tool.before" {
 		t.Fatalf("records = %+v", out.Tools)
 	}
 }

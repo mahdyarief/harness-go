@@ -3,7 +3,6 @@ package tools_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 
 	"hsg/internal/harness/scope"
@@ -28,7 +27,7 @@ func TestPipelineCanVetoBeforeExecute(t *testing.T) {
 	})
 	wrapped := tools.Pipeline(s, denyTool{})
 	_, err := wrapped.Execute(context.Background(), json.RawMessage(`{}`))
-	if !errors.Is(err, services.ErrDenied) {
-		t.Fatalf("err=%v; want ErrDenied", err)
+	if got := services.ErrorCode(err); got != "tool.before" {
+		t.Fatalf("code=%q; want tool.before (err=%v)", got, err)
 	}
 }

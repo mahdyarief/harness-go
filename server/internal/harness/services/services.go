@@ -202,15 +202,41 @@ type GuardDecision struct {
 	Reason  string
 }
 
+// PreDecision is the outcome of the ordered pre-execute pipeline.
+// Kind is one of "allow", "deny", "ask"; Code is a stable audit code.
+type PreDecision struct {
+	Kind   string
+	Reason string
+	Code   string
+}
+
+func PreAllow() PreDecision { return PreDecision{Kind: "allow"} }
+func PreDeny(reason, code string) PreDecision {
+	return PreDecision{Kind: "deny", Reason: reason, Code: code}
+}
+
+// PreExecute is one link in the tool pre-execute chain. Call next() to run the
+// remaining links; returning without calling it short-circuits the chain.
+type PreExecute func(ctx context.Context, call ToolInvocation, next func() PreDecision) PreDecision
+
+// ToolInvocation is the normalized view of a tool call handed to pre-execute
+// links. It carries no model-facing content beyond arguments.
+type ToolInvocation struct {
+	Name      string
+	Arguments json.RawMessage
+	ReadOnly  bool
+}
+
 var (
-	AgentKey        = scope.NewKey[Agent]("agent")
-	AgentLoopKey    = scope.NewKey[AgentLoop]("agentLoop")
-	LoopConfigKey   = scope.NewKey[LoopConfig]("loopConfig")
-	ToolsKey        = scope.NewKey[Tools]("tools")
-	LLMKey          = scope.NewKey[LLM]("llm")
-	SessionsKey     = scope.NewKey[Sessions]("sessions")
-	SystemPromptKey = scope.NewKey[string]("systemPrompt")
-	GuardsKey       = scope.NewKey[[]GuardDecision]("guards")
-	SandboxKey      = scope.NewKey[string]("sandboxPolicy")
-	ApprovalKey     = scope.NewKey[string]("approvalPolicy")
+	AgentKey         = scope.NewKey[Agent]("agent")
+	AgentLoopKey     = scope.NewKey[AgentLoop]("agentLoop")
+	LoopConfigKey    = scope.NewKey[LoopConfig]("loopConfig")
+	ToolsKey         = scope.NewKey[Tools]("tools")
+	LLMKey           = scope.NewKey[LLM]("llm")
+	SessionsKey      = scope.NewKey[Sessions]("sessions")
+	SystemPromptKey  = scope.NewKey[string]("systemPrompt")
+	GuardsKey        = scope.NewKey[[]GuardDecision]("guards")
+	SandboxKey       = scope.NewKey[string]("sandboxPolicy")
+	ApprovalKey      = scope.NewKey[string]("approvalPolicy")
+	ToolAllowlistKey = scope.NewKey[[]string]("toolAllowlist")
 )

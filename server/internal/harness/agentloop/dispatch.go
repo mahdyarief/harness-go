@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"hsg/internal/harness/guard"
-	"hsg/internal/harness/scope"
 	"hsg/internal/harness/services"
 	"hsg/internal/lib/ai"
 	"strings"
@@ -93,29 +92,19 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 				defer func() { <-sem }()
 				start := l.now()
 				toolCtx, cancel := context.WithTimeout(ctx, cfg.ToolTimeout)
-				decision := services.GuardDecision{Allowed: true}
-				decision, gerr := scope.Waterfall(l.scope, scope.Event[services.GuardDecision]{Name: "tool.before", Payload: decision}, decision)
-				var res services.ToolResult
-				var err error
-				if gerr == nil && !decision.Allowed {
-					err = services.ErrDenied
-				} else if gerr == nil {
-					res, err = j.tool.Execute(toolCtx, j.args)
-				} else {
-					err = gerr
-				}
+				res, err := j.tool.Execute(toolCtx, j.args)
 				cancel()
 				elapsed := int(l.now().Sub(start).Milliseconds())
 				record := services.ToolRecord{Turn: turn, Name: j.tool.Name(), Arguments: calls[j.index].Function.Arguments, DurationMs: elapsed}
 				if err != nil {
 					message := "tool execution failed"
-					if errors.Is(err, services.ErrDenied) {
-						message = "tool denied: " + decision.Reason
-						record.Err = "denied"
-					} else if errors.Is(err, context.DeadlineExceeded) {
+					if errors.Is(err, context.DeadlineExceeded) {
 						timeoutErr := services.NewHarnessError("tool timed out", "TOOL_TIMEOUT", err)
 						message = timeoutErr.Message
 						record.Err = services.ErrorCode(timeoutErr)
+					} else if code := services.ErrorCode(err); code != "" {
+						message = err.Error()
+						record.Err = code
 					} else {
 						record.Err = err.Error()
 					}
@@ -134,7 +123,6 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 				records[j.index] = record
 				refs = append(refs, res.References...)
 				mu.Unlock()
-				_ = scope.Emit(l.scope, scope.Event[services.GuardDecision]{Name: "tool.after", Payload: decision})
 			}(j)
 		}
 		wg.Wait()
