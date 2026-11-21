@@ -13,18 +13,19 @@ import (
 
 const defaultToolTimeout = 30 * time.Second
 
+// Stable denial codes. Approval codes are DSH core/tools/src/error-codes.ts:12-18.
 const (
 	CodeSandboxReadOnly     = "SANDBOX_READ_ONLY"
 	CodeApprovalRejected    = "APPROVAL_REJECTED"
 	CodeApprovalUnavailable = "APPROVAL_UNAVAILABLE"
 	CodeToolNotAllowed      = "TOOL_NOT_ALLOWED"
+	CodeToolDenied          = "TOOL_DENIED"
 )
 
 type guardedTool struct {
-	scope  *scope.Scope
-	next   services.Tool
-	cfg    services.LoopConfig
-	answer func(services.ToolInvocation) (bool, error)
+	scope *scope.Scope
+	next  services.Tool
+	cfg   services.LoopConfig
 }
 
 func Pipeline(s *scope.Scope, next services.Tool) services.Tool {
@@ -32,11 +33,9 @@ func Pipeline(s *scope.Scope, next services.Tool) services.Tool {
 }
 
 func PipelineWithConfig(s *scope.Scope, next services.Tool, cfg services.LoopConfig) services.Tool {
-	timeout := cfg.ToolTimeout
-	if timeout <= 0 {
-		timeout = defaultToolTimeout
+	if cfg.ToolTimeout <= 0 {
+		cfg.ToolTimeout = defaultToolTimeout
 	}
-	cfg.ToolTimeout = timeout
 	return &guardedTool{scope: s, next: next, cfg: cfg}
 }
 
@@ -66,65 +65,55 @@ func (g *guardedTool) Description() string         { return g.next.Description()
 func (g *guardedTool) Parameters() json.RawMessage { return g.next.Parameters() }
 func (g *guardedTool) ReadOnly() bool              { return g.next.ReadOnly() }
 
-// SetApprovalAnswer wires an interactive answerer for "ask" approval mode.
-func (g *guardedTool) SetApprovalAnswer(fn func(services.ToolInvocation) (bool, error)) {
-	g.answer = fn
-}
-
-// pre runs the ordered links. A deny short-circuits the chain; otherwise each
-// link may pass its decision to the next via next().
+// pre runs the ordered checks of DSH core/tools/src/pipeline.ts:191 (prepare):
+// preset allow-list, sandbox, approval of any escalation the sandbox asked
+// for, then user tool.before listeners. The first denial wins.
 func (g *guardedTool) pre(ctx context.Context, call services.ToolInvocation) services.PreDecision {
-	decision := services.PreAllow()
-	links := []services.PreExecute{g.presetLink, g.sandboxLink, g.approvalLink, g.listenerLink}
-	for _, link := range links {
-		decision = link(ctx, call, func() services.PreDecision { return decision })
-		if decision.Kind == "deny" {
+	allowlist, _ := scope.Require(g.scope, services.ToolAllowlistKey)
+	if len(allowlist) > 0 && !contains(allowlist, call.Name) {
+		return services.PreDeny("alat "+call.Name+" tidak diizinkan oleh preset", CodeToolNotAllowed)
+	}
+	if decision := g.sandbox(call); decision.Kind == "ask" {
+		if decision = g.approve(ctx, call, decision); decision.Kind != "allow" {
 			return decision
 		}
 	}
-	return decision
+	return g.listeners()
 }
 
-func (g *guardedTool) presetLink(_ context.Context, call services.ToolInvocation, next func() services.PreDecision) services.PreDecision {
-	allowlist, ok := scope.Require(g.scope, services.ToolAllowlistKey)
-	if ok && len(allowlist) > 0 && !contains(allowlist, call.Name) {
-		return services.PreDeny("alat "+call.Name+" tidak diizinkan oleh preset", CodeToolNotAllowed)
-	}
-	return next()
-}
-
-func (g *guardedTool) sandboxLink(_ context.Context, call services.ToolInvocation, next func() services.PreDecision) services.PreDecision {
+// sandbox asks for escalation when a write tool meets a read-only sandbox.
+// workspace-write (and wider) sandboxes let write tools run without asking.
+func (g *guardedTool) sandbox(call services.ToolInvocation) services.PreDecision {
 	mode, _ := scope.Require(g.scope, services.SandboxKey)
-	if mode == "read-only" && !call.ReadOnly {
-		return services.PreDeny("alat "+call.Name+" menulis tetapi sandbox read-only", CodeSandboxReadOnly)
+	if !call.ReadOnly && (mode == "" || mode == "read-only") {
+		return services.PreDecision{
+			Kind:   "ask",
+			Reason: "alat " + call.Name + " menulis tetapi sandbox read-only",
+			Code:   CodeSandboxReadOnly,
+		}
 	}
-	return next()
+	return services.PreAllow()
 }
 
-func (g *guardedTool) approvalLink(_ context.Context, call services.ToolInvocation, next func() services.PreDecision) services.PreDecision {
-	// Only write tools ask for approval; read-only tools never do.
-	if call.ReadOnly {
-		return next()
-	}
+// approve resolves an ask. "never" means no escalation is possible; "ask"
+// consults the scope's answerer and fails closed without one.
+func (g *guardedTool) approve(ctx context.Context, call services.ToolInvocation, ask services.PreDecision) services.PreDecision {
 	policy, _ := scope.Require(g.scope, services.ApprovalKey)
-	switch policy {
-	case "ask":
-		if g.answer == nil {
-			return services.PreDeny("alat "+call.Name+" memerlukan persetujuan tetapi tidak ada penjawab", CodeApprovalUnavailable)
-		}
-		ok, err := g.answer(call)
-		if err != nil || !ok {
-			return services.PreDeny("alat "+call.Name+" ditolak oleh pengguna", CodeApprovalRejected)
-		}
-		return next()
-	case "", "never":
-		return services.PreDeny("alat "+call.Name+" memerlukan persetujuan tetapi kebijakan never", CodeApprovalRejected)
-	default:
-		return next()
+	if policy != "ask" {
+		return services.PreDeny(ask.Reason, ask.Code)
 	}
+	answer, ok := scope.Require(g.scope, services.ApprovalAnswerKey)
+	if !ok || answer == nil {
+		return services.PreDeny("alat "+call.Name+" memerlukan persetujuan tetapi tidak ada penjawab", CodeApprovalUnavailable)
+	}
+	approved, err := answer(ctx, call)
+	if err != nil || !approved {
+		return services.PreDeny("alat "+call.Name+" ditolak oleh pengguna", CodeApprovalRejected)
+	}
+	return services.PreAllow()
 }
 
-func (g *guardedTool) listenerLink(_ context.Context, _ services.ToolInvocation, next func() services.PreDecision) services.PreDecision {
+func (g *guardedTool) listeners() services.PreDecision {
 	decision := services.GuardDecision{Allowed: true}
 	out, err := scope.Waterfall(g.scope, scope.Event[services.GuardDecision]{Name: "tool.before", Payload: decision}, decision)
 	if err != nil || !out.Allowed {
@@ -132,33 +121,43 @@ func (g *guardedTool) listenerLink(_ context.Context, _ services.ToolInvocation,
 		if reason == "" {
 			reason = "alat ditolak"
 		}
-		return services.PreDeny(reason, "tool.before")
+		return services.PreDeny(reason, CodeToolDenied)
 	}
-	return next()
+	return services.PreAllow()
 }
 
-func (g *guardedTool) Execute(ctx context.Context, args json.RawMessage) (services.ToolResult, error) {
+// Prepare implements services.Preparer: checks first, execution later.
+func (g *guardedTool) Prepare(ctx context.Context, args json.RawMessage) (func(context.Context) (services.ToolResult, error), error) {
 	call := services.ToolInvocation{Name: g.next.Name(), Arguments: args, ReadOnly: g.next.ReadOnly()}
-	decision := g.pre(ctx, call)
-	if decision.Kind != "allow" {
-		message := decision.Reason
-		if message == "" {
-			message = "alat tidak diizinkan"
-		}
+	if decision := g.pre(ctx, call); decision.Kind != "allow" {
 		_ = scope.Emit(g.scope, scope.Event[services.GuardDecision]{Name: "tool.after", Payload: services.GuardDecision{Reason: decision.Code}})
-		return services.ToolResult{Output: message}, services.NewHarnessError(message, decision.Code, nil)
+		return nil, services.NewHarnessError(decision.Reason, decision.Code, nil)
 	}
+	return func(ctx context.Context) (services.ToolResult, error) {
+		result, err := g.next.Execute(ctx, args)
+		if err == nil {
+			_ = scope.Emit(g.scope, scope.Event[services.GuardDecision]{Name: "tool.after", Payload: services.GuardDecision{Allowed: true}})
+		}
+		return result, err
+	}, nil
+}
 
+// Execute is the standalone path (no loop): prepare, then run under the
+// pipeline's own deadline. The loop calls Prepare and applies its deadline.
+func (g *guardedTool) Execute(ctx context.Context, args json.RawMessage) (services.ToolResult, error) {
+	run, err := g.Prepare(ctx, args)
+	if err != nil {
+		return services.ToolResult{Output: err.Error()}, err
+	}
 	var result services.ToolResult
-	err := guard.RunWithTimeout(ctx, g.cfg.ToolTimeout, func(ctx context.Context) error {
+	err = guard.RunWithTimeout(ctx, g.cfg.ToolTimeout, func(ctx context.Context) error {
 		var e error
-		result, e = g.next.Execute(ctx, args)
+		result, e = run(ctx)
 		return e
 	})
 	if err != nil {
 		return services.ToolResult{}, err
 	}
-	_ = scope.Emit(g.scope, scope.Event[services.GuardDecision]{Name: "tool.after", Payload: services.GuardDecision{Allowed: true}})
 	return result, nil
 }
 

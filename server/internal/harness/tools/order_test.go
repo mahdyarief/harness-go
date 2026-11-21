@@ -73,3 +73,45 @@ func TestMountDefaultsToReadOnlyAndNever(t *testing.T) {
 		t.Fatalf("approval=%q; want never", policy)
 	}
 }
+
+func TestWriteToolRunsUnderWorkspacePreset(t *testing.T) {
+	s := mounted(t, "workspace")
+	tool := &writeTool{}
+	if _, err := tools.Pipeline(s, tool).Execute(context.Background(), json.RawMessage(`{}`)); err != nil {
+		t.Fatalf("workspace-write sandbox must allow write tools: %v", err)
+	}
+	if !tool.ran {
+		t.Fatal("write tool did not run")
+	}
+}
+
+func TestStrictPresetAsksTheApprovalAnswerer(t *testing.T) {
+	cases := []struct {
+		name   string
+		answer services.ApprovalAnswer
+		code   string
+		ran    bool
+	}{
+		{"approved", func(context.Context, services.ToolInvocation) (bool, error) { return true, nil }, "", true},
+		{"rejected", func(context.Context, services.ToolInvocation) (bool, error) { return false, nil }, tools.CodeApprovalRejected, false},
+		{"no answerer", nil, tools.CodeApprovalUnavailable, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := mounted(t, "strict")
+			if tc.answer != nil {
+				if err := s.Provide(services.ApprovalAnswerKey, tc.answer, nil); err != nil {
+					t.Fatal(err)
+				}
+			}
+			tool := &writeTool{}
+			_, err := tools.Pipeline(s, tool).Execute(context.Background(), json.RawMessage(`{}`))
+			if got := services.ErrorCode(err); got != tc.code {
+				t.Fatalf("code=%q want %q", got, tc.code)
+			}
+			if tool.ran != tc.ran {
+				t.Fatalf("ran=%v want %v", tool.ran, tc.ran)
+			}
+		})
+	}
+}

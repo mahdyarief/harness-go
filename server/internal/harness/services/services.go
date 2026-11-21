@@ -227,6 +227,18 @@ type ToolInvocation struct {
 	ReadOnly  bool
 }
 
+// ApprovalAnswer resolves an "ask" decision interactively. Providing none
+// makes every ask fail closed with APPROVAL_UNAVAILABLE, as in DSH.
+type ApprovalAnswer func(ctx context.Context, call ToolInvocation) (bool, error)
+
+// Preparer splits a tool call into DSH's prepare and dispatch phases. Prepare
+// runs every pre-execute check and returns either a denial (a *HarnessError
+// with a stable code) or a run function. The loop calls Prepare before it
+// announces tool_start, so a denied call is never shown as started.
+type Preparer interface {
+	Prepare(ctx context.Context, args json.RawMessage) (func(context.Context) (ToolResult, error), error)
+}
+
 var (
 	AgentKey         = scope.NewKey[Agent]("agent")
 	AgentLoopKey     = scope.NewKey[AgentLoop]("agentLoop")
@@ -239,4 +251,6 @@ var (
 	SandboxKey       = scope.NewKey[string]("sandboxPolicy")
 	ApprovalKey      = scope.NewKey[string]("approvalPolicy")
 	ToolAllowlistKey = scope.NewKey[[]string]("toolAllowlist")
+	// ApprovalAnswerKey is optional; see ApprovalAnswer.
+	ApprovalAnswerKey = scope.NewKey[ApprovalAnswer]("approvalAnswer")
 )

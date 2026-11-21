@@ -154,7 +154,7 @@ func TestToolBeforeGuardCanDenyInvocation(t *testing.T) {
 	if tool.executed {
 		t.Fatal("tool ran despite denial")
 	}
-	if len(out.Tools) != 1 || out.Tools[0].Err != "tool.before" {
+	if len(out.Tools) != 1 || out.Tools[0].Err != tools.CodeToolDenied {
 		t.Fatalf("records = %+v", out.Tools)
 	}
 }

@@ -22,6 +22,8 @@ type MountConfig struct {
 	LoopGuards []services.LoopGuard
 	Preset     string
 	Sandbox    sandbox.Config
+	// ApprovalAnswer resolves "ask" approvals; nil fails them closed.
+	ApprovalAnswer services.ApprovalAnswer
 }
 
 func Mount(gw *ai.Gateway, registry *agent.Registry, cfg MountConfig) (*scope.Scope, error) {
@@ -60,6 +62,11 @@ func Mount(gw *ai.Gateway, registry *agent.Registry, cfg MountConfig) (*scope.Sc
 	}
 	if err := s.Provide(services.ToolAllowlistKey, spec.ToolAllowlist, nil); err != nil {
 		return nil, err
+	}
+	if cfg.ApprovalAnswer != nil {
+		if err := s.Provide(services.ApprovalAnswerKey, cfg.ApprovalAnswer, nil); err != nil {
+			return nil, err
+		}
 	}
 	if err := s.Provide(services.ToolsKey, tools.WrapTools(s, tools.Adapt(registry), resolved), nil); err != nil {
 		return nil, err

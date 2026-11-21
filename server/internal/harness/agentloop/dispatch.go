@@ -22,7 +22,7 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 	type job struct {
 		index int
 		tool  services.Tool
-		args  json.RawMessage
+		run   func(context.Context) (services.ToolResult, error)
 	}
 	var jobs []job
 	for i, call := range calls {
@@ -59,7 +59,20 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 			records[i] = services.ToolRecord{Turn: turn, Name: tool.Name(), Arguments: call.Function.Arguments, Err: "repeated tool call"}
 			continue
 		}
-		jobs = append(jobs, job{index: i, tool: tool, args: args})
+		// DSH prepare phase: pipeline checks run before tool_start, so a
+		// denied call is answered without ever being shown as started.
+		run := func(ctx context.Context) (services.ToolResult, error) { return tool.Execute(ctx, args) }
+		if p, ok := tool.(services.Preparer); ok {
+			prepared, err := p.Prepare(ctx, args)
+			if err != nil {
+				message := err.Error()
+				results[i] = toolError(call, message)
+				records[i] = services.ToolRecord{Turn: turn, Name: tool.Name(), Arguments: call.Function.Arguments, Result: message, Err: services.ErrorCode(err)}
+				continue
+			}
+			run = prepared
+		}
+		jobs = append(jobs, job{index: i, tool: tool, run: run})
 	}
 	if len(jobs) == 0 {
 		return results, records, refs, skipped, nil
@@ -92,7 +105,7 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 				defer func() { <-sem }()
 				start := l.now()
 				toolCtx, cancel := context.WithTimeout(ctx, cfg.ToolTimeout)
-				res, err := j.tool.Execute(toolCtx, j.args)
+				res, err := j.run(toolCtx)
 				cancel()
 				elapsed := int(l.now().Sub(start).Milliseconds())
 				record := services.ToolRecord{Turn: turn, Name: j.tool.Name(), Arguments: calls[j.index].Function.Arguments, DurationMs: elapsed}

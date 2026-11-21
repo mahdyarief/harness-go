@@ -27,7 +27,7 @@ func TestPipelineCanVetoBeforeExecute(t *testing.T) {
 	})
 	wrapped := tools.Pipeline(s, denyTool{})
 	_, err := wrapped.Execute(context.Background(), json.RawMessage(`{}`))
-	if got := services.ErrorCode(err); got != "tool.before" {
-		t.Fatalf("code=%q; want tool.before (err=%v)", got, err)
+	if got := services.ErrorCode(err); got != tools.CodeToolDenied {
+		t.Fatalf("code=%q; want %s (err=%v)", got, tools.CodeToolDenied, err)
 	}
 }

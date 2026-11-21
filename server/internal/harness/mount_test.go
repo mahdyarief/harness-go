@@ -1,6 +1,7 @@
 package harness_test
 
 import (
+	"context"
 	"testing"
 
 	"hsg/internal/harness"
@@ -25,5 +26,16 @@ func TestMountRegistersServices(t *testing.T) {
 	}
 	if err := s.Dispose(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestMountProvidesApprovalAnswer(t *testing.T) {
+	answer := services.ApprovalAnswer(func(context.Context, services.ToolInvocation) (bool, error) { return true, nil })
+	s, err := harness.Mount(nil, agent.NewRegistry(), harness.MountConfig{Preset: "strict", ApprovalAnswer: answer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := scope.Require(s, services.ApprovalAnswerKey); !ok || got == nil {
+		t.Fatal("approval answerer not provided")
 	}
 }
