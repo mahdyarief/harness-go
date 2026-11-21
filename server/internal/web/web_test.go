@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"io"
 	"io/fs"
 	"net/http"
@@ -46,6 +47,9 @@ func newTestApp(t *testing.T) *fiber.App {
 	t.Helper()
 
 	handler, err := Handler()
+	if errors.Is(err, ErrNoBuild) {
+		t.Skip("no embedded web build; run `make build-web && make build`")
+	}
 	if err != nil {
 		t.Fatalf("Handler(): %v", err)
 	}

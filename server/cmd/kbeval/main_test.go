@@ -7,6 +7,7 @@ import (
 	"io"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -19,6 +20,9 @@ func fixtureArgs(format string) []string {
 }
 func TestCLIEndToEnd(t *testing.T) {
 	binary := filepath.Join(t.TempDir(), "kbeval")
+	if runtime.GOOS == "windows" {
+		binary += ".exe"
+	}
 	if output, err := exec.Command("go", "build", "-o", binary, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v %s", err, output)
 	}

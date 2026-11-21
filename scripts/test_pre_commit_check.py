@@ -144,6 +144,14 @@ class SecretTest(unittest.TestCase):
         )
         self.assertEqual([i for i in issues if i.category == "secret"], [])
 
+    def test_binary_file_is_not_text_scanned(self):
+        issues = self.scan("x\x00y\n", path="server/fixture.pdf")
+        self.assertEqual(issues, [])
+
+    def test_pdf_fixture_is_not_text_scanned(self):
+        issues = self.scan("0000000000 65535 f \n", path="server/fixture.pdf")
+        self.assertEqual(issues, [])
+
     def test_hardcoded_password_detected(self):
         issues = self.scan("password = \"supersecret\"\n")
         self.assertTrue(any(i.category == "secret" for i in issues))
@@ -189,6 +197,17 @@ class MainTest(unittest.TestCase):
 
     def test_help_returns_zero(self):
         self.assertEqual(checker.main(["--help"]), 0)
+
+
+class GoVetPathTest(unittest.TestCase):
+    def test_go_vet_strips_server_prefix(self):
+        self.assertEqual(
+            checker.go_vet_packages(["server/pkg/a.go", "server/cmd/api/main.go"]),
+            ["cmd/api", "pkg"],
+        )
+
+    def test_go_vet_root_package(self):
+        self.assertEqual(checker.go_vet_packages(["server/main.go"]), ["."])
 
 
 class NodeBinTest(unittest.TestCase):

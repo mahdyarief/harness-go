@@ -127,6 +127,7 @@ def check_message(path: Path, rules: dict) -> list[Issue]:
 
 
 CONFLICT_MARKERS = ("<<<<<<<", "=======", ">>>>>>>")
+BINARY_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".woff", ".woff2", ".zip", ".gz", ".exe", ".dll"}
 
 
 def check_secret_and_hygiene(
@@ -143,6 +144,8 @@ def check_secret_and_hygiene(
         if not target.is_file():
             continue
         normalized = path.replace("\\", "/")
+        if Path(path).suffix.lower() in BINARY_EXTENSIONS:
+            continue
         scan_secrets = not any(fnmatch(normalized, p) for p in secret_allowlist)
         if target.stat().st_size > rules["max_file_bytes"] and not (
             path.endswith("lock.yaml") or path.endswith("package-lock.json")
@@ -154,9 +157,12 @@ def check_secret_and_hygiene(
         if Path(path).name == ".env" or path.endswith("/.env"):
             issues.append(Issue("secret", path, 1, ".env must not be committed; use .env.example"))
         try:
-            content = target.read_text(encoding="utf-8", errors="replace")
+            raw = target.read_bytes()
         except OSError:
             continue
+        if b"\x00" in raw:
+            continue
+        content = raw.decode("utf-8", errors="replace")
         for number, line in enumerate(content.splitlines(), start=1):
             if line.rstrip() != line:
                 issues.append(Issue("hygiene", path, number, "trailing whitespace"))
@@ -210,16 +216,31 @@ def check_web_lint(
     return issues, []
 
 
+def go_vet_packages(paths: list[str]) -> list[str]:
+    packages = set()
+    for path in paths:
+        if not path.endswith(".go"):
+            continue
+        parts = Path(path.replace("\\", "/")).parent.parts
+        if parts and parts[0] == "server":
+            parts = parts[1:]
+        packages.add("/".join(parts) if parts else ".")
+    return sorted(packages)
+
+
 def check_format_and_lint(paths: list[str]) -> tuple[list[Issue], list[Warning]]:
     issues: list[Issue] = []
     warnings: list[Warning] = []
-    go_files = [p for p in paths if p.endswith(".go") and (REPO_ROOT / p).exists()]
+    go_files = [
+        p for p in paths
+        if p.endswith(".go") and (REPO_ROOT / p).exists()
+    ]
     if go_files:
         ok, output = run_command(["gofmt", "-l", *go_files], REPO_ROOT)
         if not ok or output:
             for line in output.splitlines():
                 issues.append(Issue("gofmt", line or "<gofmt>", 1, "run gofmt -w on this file"))
-        packages = sorted({str(Path(p).parent) for p in go_files})
+        packages = go_vet_packages(go_files)
         for package in packages:
             ok, output = run_command(["go", "vet", f"./{package}"], REPO_ROOT / "server")
             if not ok:

@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -67,12 +68,14 @@ func TestRoundTripAndLayout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected sharded file: %v", err)
 	}
-	if fi.Mode().Perm() != 0o600 {
-		t.Errorf("file perm = %o, want 600", fi.Mode().Perm())
-	}
-	di, _ := os.Stat(filepath.Dir(p))
-	if di.Mode().Perm() != 0o700 {
-		t.Errorf("dir perm = %o, want 700", di.Mode().Perm())
+	if runtime.GOOS != "windows" {
+		if fi.Mode().Perm() != 0o600 {
+			t.Errorf("file perm = %o, want 600", fi.Mode().Perm())
+		}
+		di, _ := os.Stat(filepath.Dir(p))
+		if di.Mode().Perm() != 0o700 {
+			t.Errorf("dir perm = %o, want 700", di.Mode().Perm())
+		}
 	}
 	if left := tempFiles(t, dir); len(left) != 0 {
 		t.Errorf("temp files left: %v", left)
@@ -300,7 +303,7 @@ func TestNewDiskErrors(t *testing.T) {
 	if _, err := NewDisk(file); err == nil {
 		t.Error("root that is a regular file accepted")
 	}
-	if os.Geteuid() != 0 {
+	if runtime.GOOS != "windows" && os.Geteuid() != 0 {
 		ro := filepath.Join(t.TempDir(), "ro")
 		if err := os.Mkdir(ro, 0o500); err != nil {
 			t.Fatal(err)
