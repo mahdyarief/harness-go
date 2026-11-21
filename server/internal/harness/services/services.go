@@ -15,6 +15,30 @@ var (
 	ErrDenied      = errors.New("tool denied")
 )
 
+// HarnessError carries a stable machine-routable code distinct from the
+// human-readable message, with a chained cause. Route on Code, never on text.
+type HarnessError struct {
+	Code    string
+	Message string
+	Cause   error
+}
+
+func NewHarnessError(message, code string, cause error) *HarnessError {
+	return &HarnessError{Code: code, Message: message, Cause: cause}
+}
+
+func (e *HarnessError) Error() string { return e.Message }
+func (e *HarnessError) Unwrap() error { return e.Cause }
+
+// ErrorCode returns the stable code for a HarnessError, or "" for other errors.
+func ErrorCode(err error) string {
+	var target *HarnessError
+	if errors.As(err, &target) {
+		return target.Code
+	}
+	return ""
+}
+
 type RunRequest struct {
 	Messages   []ai.Message
 	ToolNames  []string

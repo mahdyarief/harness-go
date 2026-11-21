@@ -269,11 +269,13 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 					message = "tool denied: " + decision.Reason
 					record.Err = "denied"
 				} else if errors.Is(err, context.DeadlineExceeded) {
-					message = "tool timed out"
-					record.Err = "timeout"
+					timeoutErr := services.NewHarnessError("tool timed out", "TOOL_TIMEOUT", err)
+					message = timeoutErr.Message
+					record.Err = services.ErrorCode(timeoutErr)
 				} else {
 					record.Err = err.Error()
 				}
+				record.Result = message
 				results[j.index] = toolError(calls[j.index], message)
 				mu.Lock()
 				records[j.index] = record

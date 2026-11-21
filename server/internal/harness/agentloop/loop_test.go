@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"hsg/internal/harness/agentloop"
 	"hsg/internal/harness/scope"
@@ -153,6 +154,70 @@ func TestToolBeforeGuardCanDenyInvocation(t *testing.T) {
 	}
 	if len(out.Tools) != 1 || out.Tools[0].Err != "denied" {
 		t.Fatalf("records = %+v", out.Tools)
+	}
+}
+
+type timeoutLLM struct{ calls int }
+
+func (l *timeoutLLM) MaxTokens() int { return 4096 }
+func (l *timeoutLLM) ChatStream(_ context.Context, _ []ai.Message, opts ai.ChatOptions, _ func(ai.StreamDelta) error) (ai.ChatResult, error) {
+	l.calls++
+	if l.calls == 1 {
+		return ai.ChatResult{
+			ToolCalls: []ai.ToolCall{{
+				ID:       "timeout-1",
+				Type:     "function",
+				Function: ai.ToolCallFunction{Name: "slow", Arguments: `{"q":"x"}`},
+			}},
+			FinishReason: "tool_calls",
+		}, nil
+	}
+	return ai.ChatResult{Content: "selesai", FinishReason: "stop"}, nil
+}
+
+type slowTool struct{}
+
+func (slowTool) Name() string        { return "slow" }
+func (slowTool) Description() string { return "tool lambat" }
+func (slowTool) Parameters() json.RawMessage {
+	return json.RawMessage(`{"type":"object","properties":{"q":{"type":"string"}},"required":["q"]}`)
+}
+func (slowTool) ReadOnly() bool { return true }
+func (slowTool) Execute(ctx context.Context, _ json.RawMessage) (services.ToolResult, error) {
+	<-ctx.Done()
+	return services.ToolResult{}, ctx.Err()
+}
+
+func TestTimedOutToolRecordsStableCodeAndModelFacingMessage(t *testing.T) {
+	s := scope.New(nil)
+	if err := s.Provide(services.LLMKey, services.LLM(&timeoutLLM{}), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Provide(services.ToolsKey, services.Tools(staticTools{tool: slowTool{}}), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Provide(services.LoopConfigKey, services.LoopConfig{ToolTimeout: 10 * time.Millisecond}, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	var events []services.AIEvent
+	out, err := agentloop.New(s).Run(context.Background(), services.RunRequest{
+		Messages: []ai.Message{{Role: "user", Content: "cari x"}},
+	}, func(ev services.AIEvent) error {
+		events = append(events, ev)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Tools) != 1 {
+		t.Fatalf("records = %+v", out.Tools)
+	}
+	if out.Tools[0].Err != "TOOL_TIMEOUT" {
+		t.Errorf("record code = %q; want TOOL_TIMEOUT", out.Tools[0].Err)
+	}
+	if out.Tools[0].Result != "tool timed out" {
+		t.Errorf("model-facing result = %q; want 'tool timed out'", out.Tools[0].Result)
 	}
 }
 
