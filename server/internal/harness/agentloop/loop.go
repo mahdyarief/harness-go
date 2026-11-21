@@ -29,6 +29,9 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 	if err != nil {
 		return services.Outcome{}, err
 	}
+	outerCtx := ctx
+	ctx, cancel := context.WithTimeout(ctx, cfg.MaxDuration)
+	defer cancel()
 	llm, ok := scope.Require(l.scope, services.LLMKey)
 	if !ok {
 		return services.Outcome{}, services.ErrLoopMissing
@@ -60,7 +63,14 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 	for turn := 0; turn < cfg.MaxTurns; turn++ {
 		history = l.compact(ctx, history, specs, cfg, &compacted)
 
-		opts := ai.ChatOptions{Tools: specs}
+		remaining := cfg.MaxTotalTokens - out.PromptTokens - out.CompletionTokens
+		if remaining <= 0 {
+			_ = sink(services.AIEvent{Type: "budget", Error: services.ErrTokenBudget.Error()})
+			out.Partial = true
+			out.DurationMs = int(l.now().Sub(started).Milliseconds())
+			return out, services.ErrTokenBudget
+		}
+		opts := ai.ChatOptions{Tools: specs, MaxTokens: remaining}
 		if turn == 0 && cfg.ForceToolCall != "" && toolExists(specs, cfg.ForceToolCall) {
 			opts.ToolChoice = cfg.ForceToolCall
 		}
@@ -68,8 +78,15 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		result, err := l.call(ctx, llm, history, opts, sink, cfg)
 		accumulate(&out, result)
 		if err != nil {
+			if outerErr := outerCtx.Err(); outerErr != nil {
+				err = outerErr
+			}
 			out.Partial = true
+			out.DurationMs = int(l.now().Sub(started).Milliseconds())
 			return out, err
+		}
+		if result.FinishReason == "length" {
+			out.Partial = true
 		}
 		out.Turns++
 

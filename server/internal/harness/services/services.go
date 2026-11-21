@@ -16,6 +16,9 @@ var (
 	// ErrToolBudget terminates the loop once every remaining tool call has
 	// been answered with a synthetic not-started result.
 	ErrToolBudget = NewHarnessError("tool budget exhausted", "TOOL_BUDGET_EXHAUSTED", nil)
+	// ErrTokenBudget terminates the loop before the next model request when
+	// the accumulated completion tokens exceed MaxTotalTokens.
+	ErrTokenBudget = NewHarnessError("token budget exhausted", "TOKEN_BUDGET_EXHAUSTED", nil)
 )
 
 const CodeToolNotStarted = "TOOL_NOT_STARTED"

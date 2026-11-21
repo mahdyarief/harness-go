@@ -13,18 +13,28 @@ type recordingLLM struct {
 	calls       int
 	script      []ai.ChatResult
 	lastHistory []ai.Message
+	lastOpts    []ai.ChatOptions
 }
 
 func (l *recordingLLM) MaxTokens() int { return 4096 }
 
-func (l *recordingLLM) ChatStream(_ context.Context, history []ai.Message, _ ai.ChatOptions, _ func(ai.StreamDelta) error) (ai.ChatResult, error) {
+func (l *recordingLLM) ChatStream(_ context.Context, history []ai.Message, opts ai.ChatOptions, _ func(ai.StreamDelta) error) (ai.ChatResult, error) {
 	l.lastHistory = append([]ai.Message(nil), history...)
+	l.lastOpts = append(l.lastOpts, opts)
 	index := l.calls
 	l.calls++
 	if index < len(l.script) {
 		return l.script[index], nil
 	}
 	return ai.ChatResult{Content: "selesai", FinishReason: "stop"}, nil
+}
+
+type blockingLLM struct{}
+
+func (blockingLLM) MaxTokens() int { return 4096 }
+func (blockingLLM) ChatStream(ctx context.Context, _ []ai.Message, _ ai.ChatOptions, _ func(ai.StreamDelta) error) (ai.ChatResult, error) {
+	<-ctx.Done()
+	return ai.ChatResult{}, ctx.Err()
 }
 
 func call(id string) ai.ToolCall {
