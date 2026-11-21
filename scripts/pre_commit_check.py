@@ -126,6 +126,50 @@ def check_message(path: Path, rules: dict) -> list[Issue]:
     return []
 
 
+CONFLICT_MARKERS = ("<<<<<<<", "=======", ">>>>>>>")
+
+
+def check_secret_and_hygiene(
+    paths: list[str], rules: dict, repo_root: Path = REPO_ROOT
+) -> list[Issue]:
+    issues: list[Issue] = []
+    compiled = [
+        (entry["name"], re.compile(entry["regex"])) for entry in rules["secret_patterns"]
+    ]
+    placeholders = [p.lower() for p in rules["secret_placeholders"]]
+    for path in paths:
+        target = repo_root / path
+        if not target.is_file():
+            continue
+        if target.stat().st_size > rules["max_file_bytes"] and not (
+            path.endswith("lock.yaml") or path.endswith("package-lock.json")
+        ):
+            issues.append(
+                Issue("hygiene", path, 1, "file exceeds max_file_bytes; store large assets outside git")
+            )
+            continue
+        if Path(path).name == ".env" or path.endswith("/.env"):
+            issues.append(Issue("secret", path, 1, ".env must not be committed; use .env.example"))
+        try:
+            content = target.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for number, line in enumerate(content.splitlines(), start=1):
+            if line.rstrip() != line:
+                issues.append(Issue("hygiene", path, number, "trailing whitespace"))
+            if any(line.startswith(marker) for marker in CONFLICT_MARKERS):
+                issues.append(Issue("hygiene", path, number, "git conflict marker"))
+            for name, pattern in compiled:
+                match = pattern.search(line)
+                if not match:
+                    continue
+                value = match.group(2) if match.lastindex and match.lastindex >= 2 else ""
+                if value and any(p in value.lower() for p in placeholders):
+                    continue
+                issues.append(Issue("secret", path, number, f"possible {name}"))
+    return issues
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or args[0] in {"-h", "--help"}:

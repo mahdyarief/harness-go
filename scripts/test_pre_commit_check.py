@@ -103,5 +103,52 @@ class MessageTest(unittest.TestCase):
         self.assertEqual(self.check("fixup! feat: add thing\n"), [])
 
 
+class SecretTest(unittest.TestCase):
+    def setUp(self):
+        self.rules = {
+            "max_file_bytes": 1024,
+            "secret_patterns": [
+                {"name": "aws_access_key", "regex": "\\bAKIA[A-Z0-9]{16}\\b"},
+                {"name": "hardcoded_secret", "regex": "(?i)(password)\\s*[:=]\\s*['\\\"]([^'\\\"]{6,})['\\\"]"},
+            ],
+            "secret_placeholders": ["changeme", "example", "xxx"],
+        }
+
+    def scan(self, content: str, path: str = "server/config.go"):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            target = root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(content, encoding="utf-8")
+            return checker.check_secret_and_hygiene([path], self.rules, root)
+
+    def test_aws_key_detected(self):
+        issues = self.scan("key = 'AKIAIOSFODNN7EXAMPLE'\n")
+        self.assertTrue(any(i.category == "secret" for i in issues))
+
+    def test_hardcoded_password_detected(self):
+        issues = self.scan("password = \"supersecret\"\n")
+        self.assertTrue(any(i.category == "secret" for i in issues))
+
+    def test_placeholder_password_allowed(self):
+        self.assertEqual(self.scan("password = \"changeme\"\n"), [])
+
+    def test_trailing_whitespace_detected(self):
+        issues = self.scan("value = 1   \n")
+        self.assertTrue(any(i.category == "hygiene" for i in issues))
+
+    def test_conflict_marker_detected(self):
+        issues = self.scan("<<<<<<< HEAD\n")
+        self.assertTrue(any(i.category == "hygiene" for i in issues))
+
+    def test_env_file_rejected(self):
+        issues = self.scan("KEY=value\n", path=".env")
+        self.assertTrue(any("env" in i.message.lower() for i in issues))
+
+    def test_oversized_file_rejected(self):
+        issues = self.scan("x" * 2000 + "\n")
+        self.assertTrue(any("byte" in i.message.lower() for i in issues))
+
+
 if __name__ == "__main__":
     unittest.main()
