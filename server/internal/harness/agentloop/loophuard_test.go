@@ -76,3 +76,44 @@ func TestRepeatedErrorGuardStopsRunGracefully(t *testing.T) {
 		t.Fatalf("tool calls = %d; guard should stop before the turn budget", out.ToolCalls)
 	}
 }
+
+// flakyOnceTool fails on its first call only.
+type flakyOnceTool struct{ calls int }
+
+func (t *flakyOnceTool) Name() string        { return "fail" }
+func (t *flakyOnceTool) Description() string { return "fails once" }
+func (t *flakyOnceTool) Parameters() json.RawMessage {
+	return json.RawMessage(`{"type":"object","properties":{"q":{"type":"string"}}}`)
+}
+func (t *flakyOnceTool) ReadOnly() bool { return true }
+func (t *flakyOnceTool) Execute(_ context.Context, _ json.RawMessage) (services.ToolResult, error) {
+	t.calls++
+	if t.calls == 1 {
+		return services.ToolResult{}, context.DeadlineExceeded
+	}
+	return services.ToolResult{Output: "ok"}, nil
+}
+
+// A single failure must not be counted again on later turns.
+func TestRepeatedErrorGuardIgnoresEarlierTurnsFailures(t *testing.T) {
+	llm := &recordingLLM{script: []ai.ChatResult{
+		{FinishReason: "tool_calls", ToolCalls: []ai.ToolCall{{ID: "1", Type: "function",
+			Function: ai.ToolCallFunction{Name: "fail", Arguments: `{"q":"a"}`}}}},
+		{FinishReason: "tool_calls", ToolCalls: []ai.ToolCall{{ID: "2", Type: "function",
+			Function: ai.ToolCallFunction{Name: "fail", Arguments: `{"q":"b"}`}}}},
+		{Content: "jawaban akhir.", FinishReason: "stop"},
+	}}
+	s := scope.New(nil)
+	_ = s.Provide(services.LLMKey, services.LLM(llm), nil)
+	_ = s.Provide(services.ToolsKey, services.Tools(failingTools{tool: &flakyOnceTool{}}), nil)
+	_ = s.Provide(services.LoopConfigKey, services.LoopConfig{
+		LoopGuards: []services.LoopGuard{guard.NewRepeatedErrorGuard()},
+	}, nil)
+	out, err := agentloop.New(s).Run(context.Background(), services.RunRequest{Messages: userMsg("x")}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Content != "jawaban akhir." {
+		t.Fatalf("content=%q; guard stopped on a failure that never repeated", out.Content)
+	}
+}

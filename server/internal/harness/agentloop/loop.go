@@ -163,7 +163,9 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 					guardMemory[i] = services.GuardMemory{}
 				}
 				verdict := g.Inspect(guardMemory[i], services.GuardTurn{
-					Turn: turn, Records: out.Tools, History: out.Tools,
+					// Records is this turn only: guards count into Memory, so
+					// passing the whole history would recount old failures.
+					Turn: turn, Records: records, History: out.Tools,
 				})
 				if verdict.Allowed() {
 					continue
