@@ -99,10 +99,9 @@ func (r *Runner) Run(ctx context.Context, messages []ai.Message, sink agent.Sink
 			})
 		}
 	}
+	// The outcome is converted even when the run failed: the handler bills the
+	// tokens already spent and persists the partial answer from it.
 	out, err := a.Run(ctx, services.RunRequest{Messages: messages}, adapted)
-	if err != nil {
-		return agent.Outcome{}, err
-	}
 	result := agent.Outcome{
 		Content:          out.Content,
 		PromptTokens:     out.PromptTokens,
@@ -131,7 +130,7 @@ func (r *Runner) Run(ctx context.Context, messages []ai.Message, sink agent.Sink
 	for _, ref := range out.References {
 		result.References = appendUniqueReference(result.References, adaptReference(ref))
 	}
-	return result, nil
+	return result, err
 }
 
 func adaptReference(ref services.Reference) agent.Reference {
