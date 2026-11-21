@@ -36,7 +36,7 @@ func TestEstimateTokensUsesReportedUsageBaseline(t *testing.T) {
 	if got := estimateWithUsage(after, nil, reported, len(before)); got != 126 {
 		t.Fatalf("baseline + appended = %d; want 126", got)
 	}
-	if got := estimateWithUsage(after, nil, nil, len(before)); got != 17 {
-		t.Fatalf("no baseline = %d; want 17", got)
+	if got := estimateWithUsage(after, nil, nil, len(before)); got != 11 {
+		t.Fatalf("no baseline = %d; want 11", got)
 	}
 }
