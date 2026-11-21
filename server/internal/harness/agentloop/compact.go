@@ -116,16 +116,34 @@ func emitCompaction(sink services.Sink, pruned, dropped int) {
 	_ = sink(services.AIEvent{Type: "compaction", Text: fmt.Sprintf("pruned %d tool results, dropped %d messages", pruned, dropped)})
 }
 
+const (
+	charsPerToken = 4
+	roleOverhead  = 4
+)
+
 func estimateTokens(messages []ai.Message, specs []ai.ToolSpec) int {
 	total := 0
 	for _, m := range messages {
-		total += len(m.Content) / 4
+		total += len(m.Content)/charsPerToken + roleOverhead
 		for _, c := range m.ToolCalls {
-			total += len(c.Function.Arguments) / 4
+			total += len(c.Function.Arguments)/charsPerToken + roleOverhead
 		}
 	}
 	for _, s := range specs {
-		total += len(s.Function.Parameters) / 4
+		total += len(s.Function.Parameters) / charsPerToken
 	}
 	return total
+}
+
+// estimateWithUsage uses the last call's reported token usage as the baseline
+// and estimates only messages appended since counted, matching DSH's meter.
+func estimateWithUsage(messages []ai.Message, specs []ai.ToolSpec, reported *ai.ChatResult, counted int) int {
+	if reported == nil || counted <= 0 {
+		return estimateTokens(messages, specs)
+	}
+	if counted > len(messages) {
+		counted = len(messages)
+	}
+	baseline := reported.PromptTokens + reported.CompletionTokens
+	return baseline + estimateTokens(messages[counted:], specs)
 }
