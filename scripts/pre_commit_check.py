@@ -170,13 +170,82 @@ def check_secret_and_hygiene(
     return issues
 
 
+def staged_files() -> list[str]:
+    output = git("diff", "--cached", "--name-only", "--diff-filter=ACM")
+    return [line for line in output.splitlines() if line]
+
+
+def run_command(cmd: list[str], cwd: Path) -> tuple[bool, str]:
+    result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    return result.returncode == 0, (result.stdout + result.stderr).strip()
+
+
+def check_format_and_lint(paths: list[str]) -> tuple[list[Issue], list[Warning]]:
+    issues: list[Issue] = []
+    warnings: list[Warning] = []
+    go_files = [p for p in paths if p.endswith(".go") and (REPO_ROOT / p).exists()]
+    if go_files:
+        ok, output = run_command(["gofmt", "-l", *go_files], REPO_ROOT)
+        if not ok or output:
+            for line in output.splitlines():
+                issues.append(Issue("gofmt", line or "<gofmt>", 1, "run gofmt -w on this file"))
+        packages = sorted({str(Path(p).parent) for p in go_files})
+        for package in packages:
+            ok, output = run_command(["go", "vet", f"./{package}"], REPO_ROOT / "server")
+            if not ok:
+                issues.append(Issue("go_vet", package, 1, output or "go vet failed"))
+    web_root = REPO_ROOT / "web"
+    prettier = web_root / "node_modules/.bin/prettier"
+    eslint = web_root / "node_modules/.bin/eslint"
+    web_files = [
+        p for p in paths
+        if p.startswith("web/") and Path(p).suffix in {".ts", ".tsx", ".js", ".jsx", ".json", ".css"}
+    ]
+    if web_files and not (prettier.exists() and eslint.exists()):
+        warnings.append(Warning("skipped web format/lint, web/node_modules missing"))
+    else:
+        relative = [str(Path(p).relative_to("web")) for p in web_files]
+        if relative:
+            ok, output = run_command([str(prettier), "--check", *relative], web_root)
+            if not ok:
+                for line in output.splitlines():
+                    issues.append(Issue("prettier", line or "<prettier>", 1, "run prettier --write"))
+            ok, output = run_command([str(eslint), *relative], web_root)
+            if not ok:
+                issues.append(Issue("eslint", "<web>", 1, output or "eslint failed"))
+    return issues, warnings
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or args[0] in {"-h", "--help"}:
         print("usage: pre_commit_check.py files|message [<commit-msg-file>]")
         return 0
-    print("checker mode not implemented yet")
-    return 0
+    rules = load_rules()
+    issues: list[Issue] = []
+    warnings: list[Warning] = []
+    mode = args[0]
+    if mode == "message":
+        if len(args) < 2:
+            print("[FAIL] message mode requires a commit message file")
+            return 1
+        issues = check_message(Path(args[1]), rules)
+    elif mode == "files":
+        paths = staged_files()
+        issues += check_loc(paths, rules)
+        issues += check_secret_and_hygiene(paths, rules)
+        lint_issues, warnings = check_format_and_lint(paths)
+        issues += lint_issues
+    else:
+        print(f"[FAIL] unknown mode: {mode}")
+        return 1
+    for item in warnings:
+        print(item.render())
+    for item in issues:
+        print(item.render())
+    error_count = len(issues)
+    print(f"{error_count} error(s), {len(warnings)} warning(s)")
+    return 1 if error_count else 0
 
 
 if __name__ == "__main__":

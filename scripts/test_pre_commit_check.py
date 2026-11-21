@@ -150,5 +150,28 @@ class SecretTest(unittest.TestCase):
         self.assertTrue(any("byte" in i.message.lower() for i in issues))
 
 
+class MainTest(unittest.TestCase):
+    def test_message_mode_returns_one_for_bad_message(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "COMMIT_EDITMSG"
+            path.write_text("wip: bad\n", encoding="utf-8")
+            self.assertEqual(checker.main(["message", str(path)]), 1)
+
+    def test_message_mode_returns_zero_for_good_message(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "COMMIT_EDITMSG"
+            path.write_text("feat(harness): add gate\n", encoding="utf-8")
+            self.assertEqual(checker.main(["message", str(path)]), 0)
+
+    def test_files_mode_uses_staged_paths(self):
+        with unittest.mock.patch.object(checker, "git", return_value="server/bad.go\n"):
+            with unittest.mock.patch.object(checker, "check_loc", return_value=[checker.Issue("loc", "server/bad.go", 1, "too long")]):
+                with unittest.mock.patch.object(checker, "check_secret_and_hygiene", return_value=[]):
+                    self.assertEqual(checker.main(["files"]), 1)
+
+    def test_help_returns_zero(self):
+        self.assertEqual(checker.main(["--help"]), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
