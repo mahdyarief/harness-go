@@ -101,3 +101,28 @@ func TestLengthFinishReasonIsStickyAcrossToolTurn(t *testing.T) {
 		t.Fatal("length finish reason must set Partial")
 	}
 }
+
+// Prompt tokens are re-sent every turn, so counting them against the budget
+// would end ordinary multi-tool runs; only completion tokens are budgeted.
+func TestTokenBudgetIgnoresPromptTokens(t *testing.T) {
+	var script []ai.ChatResult
+	for i := 0; i < 4; i++ {
+		script = append(script, ai.ChatResult{
+			FinishReason: "tool_calls", ToolCalls: []ai.ToolCall{call(string(rune('a' + i)))},
+			PromptTokens: 9000, CompletionTokens: 10,
+		})
+	}
+	script = append(script, ai.ChatResult{Content: "jawaban", FinishReason: "stop", PromptTokens: 9000, CompletionTokens: 10})
+	llm := &recordingLLM{script: script}
+	s := mountLoop(t, llm, &fakeTool{}, services.LoopConfig{MaxTotalTokens: 20000, MaxTurns: 8, MaxToolCalls: 8})
+	out, err := agentloop.New(s).Run(context.Background(), services.RunRequest{Messages: userMsg("x")}, nil)
+	if err != nil {
+		t.Fatalf("err=%v; prompt tokens must not exhaust the budget", err)
+	}
+	if out.Content != "jawaban" {
+		t.Fatalf("content=%q", out.Content)
+	}
+	if last := llm.lastOpts[len(llm.lastOpts)-1].MaxTokens; last != 20000-40 {
+		t.Fatalf("last MaxTokens=%d want %d", last, 20000-40)
+	}
+}
