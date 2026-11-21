@@ -73,9 +73,19 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 	toolCallsThisRun := 0
 	overflowRetries := 0
 	var carried strings.Builder
+	// baseline is the last call's provider-reported usage; counted is the
+	// history length it covers (through the assistant reply). Any compaction
+	// invalidates it, since the counted prefix no longer exists.
+	var baseline *ai.ChatResult
+	counted := 0
 
 	for turn := 0; turn < cfg.MaxTurns; turn++ {
-		history = l.compact(ctx, history, specs, cfg, &compacted, sink)
+		before := compacted
+		measured := estimateWithUsage(history, specs, baseline, counted)
+		history = l.compactMeasured(ctx, history, specs, cfg, measured, &compacted, sink)
+		if compacted != before {
+			baseline = nil
+		}
 
 		// Only completion tokens are budgeted, as in the legacy runner: the
 		// prompt is re-sent every turn and is already bounded by compaction.
@@ -91,14 +101,16 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 			opts.ToolChoice = cfg.ForceToolCall
 		}
 
-		result, err := l.call(ctx, llm, history, opts, sink, cfg)
-		accumulate(&out, result)
+		result, billed, err := l.call(ctx, llm, history, opts, sink, cfg)
+		out.PromptTokens += billed.prompt
+		out.CompletionTokens += billed.completion
 		if err != nil {
 			if services.ErrorCode(err) == string(hsgllm.CodeContextWindow) &&
 				overflowRetries < 1 && outerCtx.Err() == nil {
 				overflowRetries++
 				before := len(history)
 				history = l.forceCompact(ctx, history, specs, cfg, max(1, cfg.ContextTokenCap/2), &compacted, sink)
+				baseline = nil
 				if len(history) < before {
 					_ = sink(services.AIEvent{Type: "notice", Text: "Konteks terlalu panjang; riwayat dipangkas dan permintaan diulang."})
 					continue
@@ -138,6 +150,10 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 
 		assistant := ai.Message{Role: "assistant", Content: result.Content, ToolCalls: result.ToolCalls}
 		history = append(history, assistant)
+		if result.PromptTokens > 0 {
+			reported := result
+			baseline, counted = &reported, len(history)
+		}
 
 		if len(result.ToolCalls) > 0 {
 			toolCallsThisRun += len(result.ToolCalls)
@@ -216,20 +232,15 @@ func toolExists(specs []ai.ToolSpec, name string) bool {
 	return false
 }
 
-func accumulate(out *services.Outcome, result ai.ChatResult) {
-	if result.PromptTokens > 0 {
-		out.PromptTokens += result.PromptTokens
-	}
-	if result.CompletionTokens > 0 {
-		out.CompletionTokens += result.CompletionTokens
-	}
-}
+// usage is the token count billed for one model call, summed over retries.
+type usage struct{ prompt, completion int }
 
-func (l *defaultLoop) call(ctx context.Context, model services.LLM, history []ai.Message, opts ai.ChatOptions, sink services.Sink, cfg services.LoopConfig) (ai.ChatResult, error) {
+func (l *defaultLoop) call(ctx context.Context, model services.LLM, history []ai.Message, opts ai.ChatOptions, sink services.Sink, cfg services.LoopConfig) (ai.ChatResult, usage, error) {
 	policy := hsgllm.DefaultRetryPolicy()
 	policy.MaxRetries = cfg.MaxRetries
 	// Usage is summed over every attempt so failed attempts are still billed.
-	var promptTokens, completionTokens int
+	// result keeps the final attempt's own usage (the compaction baseline).
+	var billed usage
 	attempt := 0
 	for {
 		// The gateway returns usage only on error, so the text the user already
@@ -242,18 +253,17 @@ func (l *defaultLoop) call(ctx context.Context, model services.LLM, history []ai
 			streamed.WriteString(d.Content)
 			return sink(services.AIEvent{Type: "delta", Text: d.Content})
 		})
-		promptTokens += max(0, result.PromptTokens)
-		completionTokens += max(0, result.CompletionTokens)
-		result.PromptTokens, result.CompletionTokens = promptTokens, completionTokens
+		billed.prompt += max(0, result.PromptTokens)
+		billed.completion += max(0, result.CompletionTokens)
 		emitted := streamed.Len() > 0
 		if err != nil && emitted {
 			result.Content = streamed.String()
 		}
 		if err == nil || emitted || ctx.Err() != nil || !policy.Retryable(err) || attempt >= cfg.MaxRetries {
-			return result, err
+			return result, billed, err
 		}
 		if sleepErr := policy.Sleep(ctx, policy.Delay(attempt+1)); sleepErr != nil {
-			return result, sleepErr
+			return result, billed, sleepErr
 		}
 		attempt++
 	}

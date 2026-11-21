@@ -19,14 +19,17 @@ const (
 )
 
 func (l *defaultLoop) compact(ctx context.Context, history []ai.Message, specs []ai.ToolSpec, cfg services.LoopConfig, compacted *int, sink services.Sink) []ai.Message {
-	return l.compactTo(ctx, history, specs, cfg, cfg.ContextTokenCap, compacted, sink)
+	return l.compactMeasured(ctx, history, specs, cfg, estimateTokens(history, specs), compacted, sink)
 }
 
-func (l *defaultLoop) compactTo(ctx context.Context, history []ai.Message, specs []ai.ToolSpec, cfg services.LoopConfig, cap int, compacted *int, sink services.Sink) []ai.Message {
-	if ctx.Err() != nil || estimateTokens(history, specs) <= cap {
+// compactMeasured compacts when measured (the usage-baselined size of history)
+// exceeds the cap. Re-measurement after pruning uses the local estimate, since
+// the provider baseline no longer describes the edited history.
+func (l *defaultLoop) compactMeasured(ctx context.Context, history []ai.Message, specs []ai.ToolSpec, cfg services.LoopConfig, measured int, compacted *int, sink services.Sink) []ai.Message {
+	if ctx.Err() != nil || measured <= cfg.ContextTokenCap {
 		return history
 	}
-	return l.compactContext(ctx, history, specs, cfg, cap, compacted, sink)
+	return l.compactContext(ctx, history, specs, cfg, cfg.ContextTokenCap, compacted, sink)
 }
 
 // forceCompact ignores the local estimate: the provider already reported an
@@ -161,6 +164,7 @@ func estimateWithUsage(messages []ai.Message, specs []ai.ToolSpec, reported *ai.
 	if counted > len(messages) {
 		counted = len(messages)
 	}
+	// Tool schemas are already inside the reported prompt tokens.
 	baseline := reported.PromptTokens + reported.CompletionTokens
-	return baseline + estimateTokens(messages[counted:], specs)
+	return baseline + estimateTokens(messages[counted:], nil)
 }
