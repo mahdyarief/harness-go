@@ -12,14 +12,13 @@ import (
 	"sync"
 )
 
-func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls []ai.ToolCall, turn int, sink services.Sink, cfg services.LoopConfig, repeat *guard.RepeatTool, reminder *guard.ReminderTool, out *services.Outcome) ([]ai.Message, []services.ToolRecord, []services.Reference, error) {
-	if len(calls) > cfg.MaxToolCalls-out.ToolCalls {
-		calls = calls[:max(0, cfg.MaxToolCalls-out.ToolCalls)]
-	}
+func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls []ai.ToolCall, turn int, sink services.Sink, cfg services.LoopConfig, repeat *guard.RepeatTool, reminder *guard.ReminderTool, out *services.Outcome) ([]ai.Message, []services.ToolRecord, []services.Reference, int, error) {
+	budget := max(0, cfg.MaxToolCalls-out.ToolCalls)
 	results := make([]ai.Message, len(calls))
 	records := make([]services.ToolRecord, len(calls))
 	var refs []services.Reference
 	limit := min(cfg.ToolResultBytes, cfg.MaxToolResultBytes)
+	skipped := max(0, len(calls)-budget)
 
 	type job struct {
 		index int
@@ -28,6 +27,12 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 	}
 	var jobs []job
 	for i, call := range calls {
+		if i >= budget {
+			message := "Panggilan alat tidak dijalankan karena batas jumlah panggilan alat tercapai. Selesaikan jawaban dengan informasi yang ada."
+			results[i] = toolError(call, message)
+			records[i] = services.ToolRecord{Turn: turn, Name: call.Function.Name, Arguments: call.Function.Arguments, Result: message, Err: services.CodeToolNotStarted}
+			continue
+		}
 		if call.Type != "" && call.Type != "function" {
 			results[i] = toolError(call, "unsupported tool call type")
 			records[i] = services.ToolRecord{Turn: turn, Name: call.Function.Name, Arguments: call.Function.Arguments, Err: "unsupported tool call type"}
@@ -47,7 +52,7 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 		}
 		if notice := reminder.Observe(tool.Name(), call.Function.Arguments); notice != nil {
 			if err := sink(services.AIEvent{Type: "tool.reminder", Text: notice.Text, ToolName: tool.Name(), ToolCall: call.ID}); err != nil {
-				return nil, nil, nil, err
+				return nil, nil, nil, 0, err
 			}
 		}
 		if decision := repeat.Check(tool.Name(), canonicalArgs(call.Function.Arguments)); decision.Flagged {
@@ -58,13 +63,13 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 		jobs = append(jobs, job{index: i, tool: tool, args: args})
 	}
 	if len(jobs) == 0 {
-		return results, records, refs, nil
+		return results, records, refs, skipped, nil
 	}
 	out.ToolCalls += len(jobs)
 
 	for _, j := range jobs {
 		if err := sink(services.AIEvent{Type: "tool_start", ToolName: j.tool.Name(), ToolCall: calls[j.index].ID}); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, 0, err
 		}
 	}
 
@@ -121,7 +126,7 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 		}(j)
 	}
 	wg.Wait()
-	return results, records, refs, nil
+	return results, records, refs, skipped, nil
 }
 
 func toolError(call ai.ToolCall, message string) ai.Message {

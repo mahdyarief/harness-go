@@ -77,14 +77,20 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		history = append(history, assistant)
 
 		if len(result.ToolCalls) > 0 {
-			messages, records, refs, err := l.dispatch(ctx, tools, result.ToolCalls, turn, sink, cfg, repeatTool, &reminder, &out)
+			messages, records, refs, skipped, err := l.dispatch(ctx, tools, result.ToolCalls, turn, sink, cfg, repeatTool, &reminder, &out)
 			out.References = append(out.References, refs...)
 			out.Tools = append(out.Tools, records...)
+			history = append(history, messages...)
 			if err != nil {
 				out.Partial = true
 				return out, err
 			}
-			history = append(history, messages...)
+			if skipped > 0 {
+				_ = sink(services.AIEvent{Type: "budget", Error: services.ErrToolBudget.Error()})
+				out.Partial = true
+				out.DurationMs = int(l.now().Sub(started).Milliseconds())
+				return out, services.ErrToolBudget
+			}
 			continue
 		}
 

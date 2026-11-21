@@ -13,7 +13,12 @@ import (
 var (
 	ErrLoopMissing = errors.New("agentLoop service missing")
 	ErrDenied      = errors.New("tool denied")
+	// ErrToolBudget terminates the loop once every remaining tool call has
+	// been answered with a synthetic not-started result.
+	ErrToolBudget = NewHarnessError("tool budget exhausted", "TOOL_BUDGET_EXHAUSTED", nil)
 )
+
+const CodeToolNotStarted = "TOOL_NOT_STARTED"
 
 // HarnessError carries a stable machine-routable code distinct from the
 // human-readable message, with a chained cause. Route on Code, never on text.
