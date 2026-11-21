@@ -226,10 +226,14 @@ type continuationLLM struct{ calls int }
 func (l *continuationLLM) MaxTokens() int { return 4096 }
 func (l *continuationLLM) ChatStream(_ context.Context, _ []ai.Message, _ ai.ChatOptions, _ func(ai.StreamDelta) error) (ai.ChatResult, error) {
 	l.calls++
-	if l.calls == 1 {
+	switch l.calls {
+	case 1:
+		return ai.ChatResult{FinishReason: "tool_calls", ToolCalls: []ai.ToolCall{call("a")}}, nil
+	case 2:
 		return ai.ChatResult{Content: "Saya akan cek datanya", FinishReason: "stop"}, nil
+	default:
+		return ai.ChatResult{Content: "hasil akhir", FinishReason: "stop"}, nil
 	}
-	return ai.ChatResult{Content: "hasil akhir", FinishReason: "stop"}, nil
 }
 
 func TestAntiStallContinuationRunsAnotherTurn(t *testing.T) {
@@ -238,13 +242,57 @@ func TestAntiStallContinuationRunsAnotherTurn(t *testing.T) {
 	if err := s.Provide(services.LLMKey, services.LLM(llm), nil); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.Provide(services.ToolsKey, services.Tools(staticTools{tool: &fakeTool{}}), nil); err != nil {
+		t.Fatal(err)
+	}
+	var events []services.AIEvent
 	out, err := agentloop.New(s).Run(context.Background(), services.RunRequest{
 		Messages: []ai.Message{{Role: "user", Content: "tolong cek"}},
-	}, nil)
+	}, func(e services.AIEvent) error { events = append(events, e); return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
-	if llm.calls != 2 || out.Turns != 2 || out.Content != "hasil akhir" {
+	if llm.calls != 3 || out.Turns != 3 || out.Content != "hasil akhir" {
 		t.Fatalf("calls=%d out=%+v", llm.calls, out)
+	}
+	var notices int
+	for _, e := range events {
+		if e.Type == "notice" {
+			notices++
+		}
+	}
+	if notices != 1 {
+		t.Fatalf("notices=%d want 1", notices)
+	}
+}
+
+func TestNoToolsNoNudge(t *testing.T) {
+	llm := &recordingLLM{script: []ai.ChatResult{{Content: "Saya akan jelaskan: ...", FinishReason: "stop"}}}
+	s := mountLoop(t, llm, &fakeTool{}, services.LoopConfig{})
+	out, err := agentloop.New(s).Run(context.Background(), services.RunRequest{Messages: userMsg("x")}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if llm.calls != 1 || out.Turns != 1 {
+		t.Fatalf("stalled answer without tools must not be nudged: calls=%d turns=%d", llm.calls, out.Turns)
+	}
+}
+
+func TestContinuationNudgeCap(t *testing.T) {
+	stall := ai.ChatResult{Content: "Saya akan cek datanya", FinishReason: "stop"}
+	llm := &recordingLLM{script: []ai.ChatResult{
+		{FinishReason: "tool_calls", ToolCalls: []ai.ToolCall{call("a")}},
+		stall, stall, stall, stall,
+	}}
+	s := mountLoop(t, llm, &fakeTool{}, services.LoopConfig{MaxContinuationNudges: 1})
+	out, err := agentloop.New(s).Run(context.Background(), services.RunRequest{Messages: userMsg("x")}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if llm.calls != 3 {
+		t.Fatalf("calls=%d want 3 (one tool turn, one nudge, then stop)", llm.calls)
+	}
+	if !out.Partial {
+		t.Fatal("capped nudge must leave the turn partial")
 	}
 }

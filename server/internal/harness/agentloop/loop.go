@@ -3,6 +3,7 @@ package agentloop
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"hsg/internal/harness/guard"
@@ -19,6 +20,12 @@ type defaultLoop struct {
 func New(s *scope.Scope) services.AgentLoop {
 	return &defaultLoop{scope: s, now: time.Now}
 }
+
+const (
+	nudgeNotice  = "Model berhenti setelah menggunakan alat tanpa menyelesaikan tugas. Mendorong untuk melanjutkan."
+	nudgePrompt  = "Lanjutkan tugas dengan alat yang tersedia. Setelah benar-benar selesai, berikan ringkasan akhir yang singkat. Jika menunggu keputusan pengguna, ajukan pertanyaan."
+	resumePrompt = "Lanjutkan jawaban dari titik terakhir tanpa mengulang. Selesaikan hingga selesai."
+)
 
 func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink services.Sink) (services.Outcome, error) {
 	cfg, ok := scope.Require(l.scope, services.LoopConfigKey)
@@ -59,6 +66,10 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 	}
 	specs := toolSpecs(tools)
 	compacted := 0
+	nudges := 0
+	partialContinuations := 0
+	toolCallsThisRun := 0
+	var carried strings.Builder
 
 	for turn := 0; turn < cfg.MaxTurns; turn++ {
 		history = l.compact(ctx, history, specs, cfg, &compacted)
@@ -78,8 +89,25 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		result, err := l.call(ctx, llm, history, opts, sink, cfg)
 		accumulate(&out, result)
 		if err != nil {
+			// A provider-side stream cut leaves text the user already saw.
+			// Resume it once per budget instead of returning a partial answer.
+			cut := result.Content != "" && errors.Is(err, ai.ErrProvider) &&
+				partialContinuations < cfg.MaxPartialContinuations && outerCtx.Err() == nil
+			if cut {
+				partialContinuations++
+				carried.WriteString(result.Content)
+				history = append(history,
+					ai.Message{Role: "assistant", Content: result.Content},
+					ai.Message{Role: "user", Content: resumePrompt})
+				_ = sink(services.AIEvent{Type: "notice", Text: "Jawaban terputus; melanjutkan dari bagian terakhir."})
+				continue
+			}
 			if outerErr := outerCtx.Err(); outerErr != nil {
 				err = outerErr
+			}
+			if out.Content == "" && result.Content != "" {
+				out.Content = carried.String() + result.Content
+				out.Partial = true
 			}
 			out.Partial = true
 			out.DurationMs = int(l.now().Sub(started).Milliseconds())
@@ -94,6 +122,7 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		history = append(history, assistant)
 
 		if len(result.ToolCalls) > 0 {
+			toolCallsThisRun += len(result.ToolCalls)
 			messages, records, refs, skipped, err := l.dispatch(ctx, tools, result.ToolCalls, turn, sink, cfg, repeatTool, &reminder, &out)
 			out.References = append(out.References, refs...)
 			out.Tools = append(out.Tools, records...)
@@ -111,11 +140,19 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 			continue
 		}
 
-		if shouldContinue(result.Content, out.Turns) && out.Turns < cfg.MaxTurns {
-			history = append(history, ai.Message{Role: "user", Content: continuationPrompt})
+		if toolCallsThisRun > 0 && nudges < cfg.MaxContinuationNudges &&
+			shouldContinue(result.Content, nudges > 0) {
+			if nudges == 0 {
+				_ = sink(services.AIEvent{Type: "notice", Text: nudgeNotice})
+			}
+			nudges++
+			history = append(history, ai.Message{Role: "user", Content: nudgePrompt})
 			continue
 		}
-		out.Content = result.Content
+		if toolCallsThisRun > 0 && nudges >= cfg.MaxContinuationNudges && shouldContinue(result.Content, true) {
+			out.Partial = true
+		}
+		out.Content = carried.String() + result.Content
 		out.DurationMs = int(l.now().Sub(started).Milliseconds())
 		return out, nil
 	}
