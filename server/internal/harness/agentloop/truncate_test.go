@@ -90,8 +90,9 @@ func TestToolResultTruncateExactBoundary(t *testing.T) {
 
 func TestToolResultTruncateOversized(t *testing.T) {
 	got := runTruncated(t, strings.Repeat("x", 20), 5)
-	if !strings.HasPrefix(got, "xxxxx") || !strings.Contains(got, "truncated") {
-		t.Fatalf("result = %q; want truncated", got)
+	if !strings.HasPrefix(got, "xx") || !strings.HasSuffix(got, "xx") ||
+		!strings.Contains(got, "[... tool result middle pruned ...]") || !strings.Contains(got, "15 bytes") {
+		t.Fatalf("result = %q; want head+tail pruning", got)
 	}
 }
 

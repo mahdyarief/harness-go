@@ -74,7 +74,7 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 	var carried strings.Builder
 
 	for turn := 0; turn < cfg.MaxTurns; turn++ {
-		history = l.compact(ctx, history, specs, cfg, &compacted)
+		history = l.compact(ctx, history, specs, cfg, &compacted, sink)
 
 		remaining := cfg.MaxTotalTokens - out.PromptTokens - out.CompletionTokens
 		if remaining <= 0 {
