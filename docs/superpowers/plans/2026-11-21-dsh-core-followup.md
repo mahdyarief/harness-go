@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-11-21)** by `2026-11-21-dsh-core-parity.md` — kept for history. Tasks 1 and 4 were folded into parity Tasks 7 and 9; Tasks 2–3 moved to Phase C (deferred).
+
 # DSH Core 1:1 Follow-up Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
