@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"hsg/internal/harness/guard"
+	"hsg/internal/harness/llm"
 	"hsg/internal/harness/scope"
 	"hsg/internal/harness/services"
 	"hsg/internal/lib/ai"
@@ -206,35 +207,25 @@ func accumulate(out *services.Outcome, result ai.ChatResult) {
 	}
 }
 
-func (l *defaultLoop) call(ctx context.Context, llm services.LLM, history []ai.Message, opts ai.ChatOptions, sink services.Sink, cfg services.LoopConfig) (ai.ChatResult, error) {
-	var last ai.ChatResult
-	var lastErr error
-	for attempt := 0; attempt <= cfg.MaxRetries; attempt++ {
+func (l *defaultLoop) call(ctx context.Context, model services.LLM, history []ai.Message, opts ai.ChatOptions, sink services.Sink, cfg services.LoopConfig) (ai.ChatResult, error) {
+	policy := llm.DefaultRetryPolicy()
+	policy.MaxRetries = cfg.MaxRetries
+	attempt := 0
+	for {
 		emitted := false
-		result, err := llm.ChatStream(ctx, history, opts, func(d ai.StreamDelta) error {
+		result, err := model.ChatStream(ctx, history, opts, func(d ai.StreamDelta) error {
 			if d.Content == "" {
 				return nil
 			}
 			emitted = true
 			return sink(services.AIEvent{Type: "delta", Text: d.Content})
 		})
-		last = result
-		if err == nil {
-			return result, nil
-		}
-		lastErr = err
-		var providerErr *ai.ProviderError
-		if !errors.As(err, &providerErr) || !providerErr.Retryable || ctx.Err() != nil || emitted {
+		if err == nil || emitted || ctx.Err() != nil || !policy.Retryable(err) || attempt >= cfg.MaxRetries {
 			return result, err
 		}
-		if attempt == cfg.MaxRetries {
-			break
+		if sleepErr := policy.Sleep(ctx, policy.Delay(attempt+1)); sleepErr != nil {
+			return result, sleepErr
 		}
-		select {
-		case <-ctx.Done():
-			return result, ctx.Err()
-		case <-time.After(time.Duration(attempt+1) * 150 * time.Millisecond):
-		}
+		attempt++
 	}
-	return last, lastErr
 }
