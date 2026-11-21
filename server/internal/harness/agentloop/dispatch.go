@@ -73,59 +73,73 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 		}
 	}
 
-	var wg sync.WaitGroup
 	var mu sync.Mutex
-	for _, j := range jobs {
-		wg.Add(1)
-		go func(j job) {
-			defer wg.Done()
-			start := l.now()
-			toolCtx, cancel := context.WithTimeout(ctx, cfg.ToolTimeout)
-			decision := services.GuardDecision{Allowed: true}
-			decision, gerr := scope.Waterfall(l.scope, scope.Event[services.GuardDecision]{Name: "tool.before", Payload: decision}, decision)
-			var res services.ToolResult
-			var err error
-			if gerr == nil && !decision.Allowed {
-				err = services.ErrDenied
-			} else if gerr == nil {
-				res, err = j.tool.Execute(toolCtx, j.args)
-			} else {
-				err = gerr
+	sem := make(chan struct{}, cfg.MaxToolConcurrency)
+	for start := 0; start < len(jobs); {
+		end := start + 1
+		readOnly := jobs[start].tool.ReadOnly()
+		if readOnly {
+			for end < len(jobs) && jobs[end].tool.ReadOnly() {
+				end++
 			}
-			cancel()
-			elapsed := int(l.now().Sub(start).Milliseconds())
-			record := services.ToolRecord{Turn: turn, Name: j.tool.Name(), Arguments: calls[j.index].Function.Arguments, DurationMs: elapsed}
-			if err != nil {
-				message := "tool execution failed"
-				if errors.Is(err, services.ErrDenied) {
-					message = "tool denied: " + decision.Reason
-					record.Err = "denied"
-				} else if errors.Is(err, context.DeadlineExceeded) {
-					timeoutErr := services.NewHarnessError("tool timed out", "TOOL_TIMEOUT", err)
-					message = timeoutErr.Message
-					record.Err = services.ErrorCode(timeoutErr)
+		}
+		group := jobs[start:end]
+		var wg sync.WaitGroup
+		for _, j := range group {
+			wg.Add(1)
+			go func(j job) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+				start := l.now()
+				toolCtx, cancel := context.WithTimeout(ctx, cfg.ToolTimeout)
+				decision := services.GuardDecision{Allowed: true}
+				decision, gerr := scope.Waterfall(l.scope, scope.Event[services.GuardDecision]{Name: "tool.before", Payload: decision}, decision)
+				var res services.ToolResult
+				var err error
+				if gerr == nil && !decision.Allowed {
+					err = services.ErrDenied
+				} else if gerr == nil {
+					res, err = j.tool.Execute(toolCtx, j.args)
 				} else {
-					record.Err = err.Error()
+					err = gerr
 				}
-				record.Result = message
-				results[j.index] = toolError(calls[j.index], message)
+				cancel()
+				elapsed := int(l.now().Sub(start).Milliseconds())
+				record := services.ToolRecord{Turn: turn, Name: j.tool.Name(), Arguments: calls[j.index].Function.Arguments, DurationMs: elapsed}
+				if err != nil {
+					message := "tool execution failed"
+					if errors.Is(err, services.ErrDenied) {
+						message = "tool denied: " + decision.Reason
+						record.Err = "denied"
+					} else if errors.Is(err, context.DeadlineExceeded) {
+						timeoutErr := services.NewHarnessError("tool timed out", "TOOL_TIMEOUT", err)
+						message = timeoutErr.Message
+						record.Err = services.ErrorCode(timeoutErr)
+					} else {
+						record.Err = err.Error()
+					}
+					record.Result = message
+					results[j.index] = toolError(calls[j.index], message)
+					mu.Lock()
+					records[j.index] = record
+					mu.Unlock()
+					return
+				}
+				output := truncate(res.Output, limit)
+				results[j.index] = ai.Message{Role: "tool", ToolCallID: calls[j.index].ID, Content: output}
+				record.Result = output
+				record.References = res.References
 				mu.Lock()
 				records[j.index] = record
+				refs = append(refs, res.References...)
 				mu.Unlock()
-				return
-			}
-			output := truncate(res.Output, limit)
-			results[j.index] = ai.Message{Role: "tool", ToolCallID: calls[j.index].ID, Content: output}
-			record.Result = output
-			record.References = res.References
-			mu.Lock()
-			records[j.index] = record
-			refs = append(refs, res.References...)
-			mu.Unlock()
-			_ = scope.Emit(l.scope, scope.Event[services.GuardDecision]{Name: "tool.after", Payload: decision})
-		}(j)
+				_ = scope.Emit(l.scope, scope.Event[services.GuardDecision]{Name: "tool.after", Payload: decision})
+			}(j)
+		}
+		wg.Wait()
+		start = end
 	}
-	wg.Wait()
 	return results, records, refs, skipped, nil
 }
 

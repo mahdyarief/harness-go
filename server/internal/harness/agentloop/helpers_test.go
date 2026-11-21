@@ -9,6 +9,28 @@ import (
 	"hsg/internal/lib/ai"
 )
 
+type namespacedTools struct {
+	read  services.Tool
+	write services.Tool
+}
+
+func (t namespacedTools) Lookup(name string) (services.Tool, bool) {
+	switch name {
+	case "write":
+		return t.write, true
+	case "lookup":
+		return t.read, true
+	}
+	return nil, false
+}
+
+func (t namespacedTools) Specs() []ai.ToolSpec {
+	return []ai.ToolSpec{
+		{Type: "function", Function: ai.ToolFunction{Name: "lookup"}},
+		{Type: "function", Function: ai.ToolFunction{Name: "write"}},
+	}
+}
+
 type recordingLLM struct {
 	calls       int
 	script      []ai.ChatResult
