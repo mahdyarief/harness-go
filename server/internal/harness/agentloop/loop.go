@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"hsg/internal/harness/guard"
-	"hsg/internal/harness/llm"
+	hsgllm "hsg/internal/harness/llm"
 	"hsg/internal/harness/scope"
 	"hsg/internal/harness/services"
 	"hsg/internal/lib/ai"
@@ -71,6 +71,7 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 	nudges := 0
 	partialContinuations := 0
 	toolCallsThisRun := 0
+	overflowRetries := 0
 	var carried strings.Builder
 
 	for turn := 0; turn < cfg.MaxTurns; turn++ {
@@ -91,6 +92,16 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		result, err := l.call(ctx, llm, history, opts, sink, cfg)
 		accumulate(&out, result)
 		if err != nil {
+			if services.ErrorCode(err) == string(hsgllm.CodeContextWindow) &&
+				overflowRetries < 1 && outerCtx.Err() == nil {
+				overflowRetries++
+				before := len(history)
+				history = l.forceCompact(ctx, history, specs, cfg, max(1, cfg.ContextTokenCap/2), &compacted, sink)
+				if len(history) < before {
+					_ = sink(services.AIEvent{Type: "notice", Text: "Konteks terlalu panjang; riwayat dipangkas dan permintaan diulang."})
+					continue
+				}
+			}
 			// A provider-side stream cut leaves text the user already saw.
 			// Resume it once per budget instead of returning a partial answer.
 			cut := result.Content != "" && errors.Is(err, ai.ErrProvider) &&
@@ -119,6 +130,7 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 			out.Partial = true
 		}
 		out.Turns++
+		overflowRetries = 0
 
 		assistant := ai.Message{Role: "assistant", Content: result.Content, ToolCalls: result.ToolCalls}
 		history = append(history, assistant)
@@ -208,7 +220,7 @@ func accumulate(out *services.Outcome, result ai.ChatResult) {
 }
 
 func (l *defaultLoop) call(ctx context.Context, model services.LLM, history []ai.Message, opts ai.ChatOptions, sink services.Sink, cfg services.LoopConfig) (ai.ChatResult, error) {
-	policy := llm.DefaultRetryPolicy()
+	policy := hsgllm.DefaultRetryPolicy()
 	policy.MaxRetries = cfg.MaxRetries
 	attempt := 0
 	for {

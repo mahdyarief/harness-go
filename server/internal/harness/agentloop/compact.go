@@ -12,7 +12,48 @@ import (
 const compactKeepChars = 512
 
 func (l *defaultLoop) compact(ctx context.Context, history []ai.Message, specs []ai.ToolSpec, cfg services.LoopConfig, compacted *int, sink services.Sink) []ai.Message {
-	if ctx.Err() != nil || estimateTokens(history, specs) <= cfg.ContextTokenCap {
+	return l.compactTo(ctx, history, specs, cfg, cfg.ContextTokenCap, compacted, sink)
+}
+
+func (l *defaultLoop) compactTo(ctx context.Context, history []ai.Message, specs []ai.ToolSpec, cfg services.LoopConfig, cap int, compacted *int, sink services.Sink) []ai.Message {
+	if ctx.Err() != nil || estimateTokens(history, specs) <= cap {
+		return history
+	}
+	return l.compactContext(ctx, history, specs, cfg, cap, compacted, sink)
+}
+
+// forceCompact ignores the local estimate: the provider already reported an
+// overflow, so it must shed history even if the local meter disagrees. It keeps
+// the system prompt, the first user message and the two most recent complete
+// tool pairs, which always leaves a pairing-safe history.
+func (l *defaultLoop) forceCompact(ctx context.Context, history []ai.Message, specs []ai.ToolSpec, cfg services.LoopConfig, cap int, compacted *int, sink services.Sink) []ai.Message {
+	if ctx.Err() != nil || len(history) <= 3 {
+		return history
+	}
+	head := 0
+	if history[0].Role == "system" {
+		head = 1
+	}
+	out := append([]ai.Message(nil), history[:head+1]...)
+	pairs := 0
+	for i := len(history) - 1; i > head && pairs < 2; i-- {
+		out = append([]ai.Message{history[i]}, out...)
+		if history[i].Role == "tool" && i > head && len(history[i-1].ToolCalls) > 0 {
+			out = append([]ai.Message{history[i-1]}, out...)
+			pairs++
+			i--
+		}
+	}
+	if len(out) >= len(history) {
+		return history
+	}
+	*compacted += len(history) - len(out)
+	emitCompaction(sink, 0, len(history)-len(out))
+	return out
+}
+
+func (l *defaultLoop) compactContext(ctx context.Context, history []ai.Message, specs []ai.ToolSpec, cfg services.LoopConfig, cap int, compacted *int, sink services.Sink) []ai.Message {
+	if ctx.Err() != nil {
 		return history
 	}
 	head := 0
@@ -28,7 +69,7 @@ func (l *defaultLoop) compact(ctx context.Context, history []ai.Message, specs [
 			count++
 		}
 	}
-	if count > 0 && estimateTokens(cleared, specs) <= cfg.ContextTokenCap {
+	if count > 0 && estimateTokens(cleared, specs) <= cap {
 		*compacted += count
 		emitCompaction(sink, count, 0)
 		return cleared
@@ -48,7 +89,7 @@ func (l *defaultLoop) compact(ctx context.Context, history []ai.Message, specs [
 				continue
 			}
 		}
-		if estimateTokens(out, specs) <= cfg.ContextTokenCap || start <= head {
+		if estimateTokens(out, specs) <= cap || start <= head {
 			dropped := len(history) - len(out)
 			*compacted += dropped
 			emitCompaction(sink, count, dropped)
