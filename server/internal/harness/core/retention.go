@@ -2,7 +2,6 @@ package core
 
 import (
 	"fmt"
-	"strings"
 	"unicode/utf8"
 )
 
@@ -20,6 +19,19 @@ func RetainHeadTail(s string, head, tail int) string {
 	}
 	h := string(r[:head])
 	t := string(r[len(r)-tail:])
+	omitted := len(s) - len(h) - len(t)
+	return h + pruneMarker + fmt.Sprintf(" (%d bytes omitted)", omitted) + t
+}
+
+// RetainHeadTailBytes is RetainHeadTail with byte budgets (DSH
+// util/output-retention TextRetainer, head+tail strategy): it keeps at most
+// head leading and tail trailing bytes, never splitting a rune.
+func RetainHeadTailBytes(s string, head, tail int) string {
+	if head < 0 || tail < 0 || len(s) <= head+tail {
+		return s
+	}
+	h := RuneSafePrefix(s, head)
+	t := RuneSafeSuffix(s, tail)
 	omitted := len(s) - len(h) - len(t)
 	return h + pruneMarker + fmt.Sprintf(" (%d bytes omitted)", omitted) + t
 }
@@ -50,5 +62,5 @@ func RuneSafeSuffix(s string, n int) string {
 	for start < len(s) && !utf8.RuneStart(s[start]) {
 		start++
 	}
-	return strings.TrimPrefix(s[start:], "")
+	return s[start:]
 }

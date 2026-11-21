@@ -40,7 +40,7 @@ func TestCompactionPrunesMiddleAndEmitsEvent(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		history = append(history,
 			ai.Message{Role: "assistant", ToolCalls: []ai.ToolCall{{ID: fmt.Sprintf("c%d", i)}}},
-			ai.Message{Role: "tool", Content: strings.Repeat("z", 1200)},
+			ai.Message{Role: "tool", Content: strings.Repeat("z", 9000)}, // above the DSH 8192 prune threshold
 		)
 	}
 	var events []services.AIEvent

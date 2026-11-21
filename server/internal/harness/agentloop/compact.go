@@ -3,13 +3,20 @@ package agentloop
 import (
 	"context"
 	"fmt"
+	"unicode/utf8"
 
 	"hsg/internal/harness/core"
 	"hsg/internal/harness/services"
 	"hsg/internal/lib/ai"
 )
 
-const compactKeepChars = 512
+// Tool-result pruning defaults, ported from DSH
+// compaction-tool-result-pruner/src/config.ts:11-13.
+const (
+	pruneThresholdChars = 8192
+	pruneHeadChars      = 4096
+	pruneTailChars      = 1024
+)
 
 func (l *defaultLoop) compact(ctx context.Context, history []ai.Message, specs []ai.ToolSpec, cfg services.LoopConfig, compacted *int, sink services.Sink) []ai.Message {
 	return l.compactTo(ctx, history, specs, cfg, cfg.ContextTokenCap, compacted, sink)
@@ -74,8 +81,8 @@ func (l *defaultLoop) compactContext(ctx context.Context, history []ai.Message, 
 	cleared := append([]ai.Message(nil), history...)
 	count := 0
 	for i := head; i < keepFrom && i < len(cleared); i++ {
-		if cleared[i].Role == "tool" && len([]rune(cleared[i].Content)) > 2*compactKeepChars {
-			cleared[i].Content = core.RetainHeadTail(cleared[i].Content, compactKeepChars, compactKeepChars)
+		if cleared[i].Role == "tool" && utf8.RuneCountInString(cleared[i].Content) > pruneThresholdChars {
+			cleared[i].Content = core.RetainHeadTail(cleared[i].Content, pruneHeadChars, pruneTailChars)
 			count++
 		}
 	}

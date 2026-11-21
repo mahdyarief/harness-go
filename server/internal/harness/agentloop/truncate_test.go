@@ -90,9 +90,10 @@ func TestToolResultTruncateExactBoundary(t *testing.T) {
 
 func TestToolResultTruncateOversized(t *testing.T) {
 	got := runTruncated(t, strings.Repeat("x", 20), 5)
-	if !strings.HasPrefix(got, "xx") || !strings.HasSuffix(got, "xx") ||
-		!strings.Contains(got, "[... tool result middle pruned ...]") || !strings.Contains(got, "15 bytes") {
-		t.Fatalf("result = %q; want head+tail pruning", got)
+	// DSH 4:1 head:tail split of the 5-byte budget: 4 head bytes, 1 tail byte.
+	want := "xxxx[... tool result middle pruned ...] (15 bytes omitted)x"
+	if got != want {
+		t.Fatalf("result = %q; want %q", got, want)
 	}
 }
 
