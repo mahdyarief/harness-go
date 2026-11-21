@@ -18,7 +18,12 @@ func TestClassifyHTTP(t *testing.T) {
 		{"payment required", 402, "", CodeQuota},
 		{"rate limit", 429, "", CodeRateLimit},
 		{"context in 400", 400, "this model's maximum context length is exceeded", CodeContextWindow},
-		{"context in 413", 413, "prompt is too long", CodeContextWindow},
+		{"context in 413", 413, "prompt is too long for the model", CodeContextWindow},
+		{"bare too long is not context (DSH)", 413, "prompt is too long", CodeInvalidRequest},
+		{"structured context code", 400, "context_length_exceeded", CodeContextWindow},
+		{"billing word in 5xx is not quota", 503, "billing service unavailable", CodeServer},
+		{"max_tokens param is not context", 400, "max_tokens exceeds the token limit", CodeInvalidRequest},
+		{"rate limit with quota noun", 429, "rate limit quota per minute", CodeRateLimit},
 		{"bad request", 400, "invalid json field", CodeInvalidRequest},
 		{"payload too large", 413, "increase plan", CodeInvalidRequest},
 		{"server", 503, "", CodeServer},
@@ -52,5 +57,44 @@ func TestProviderErrorNeverLeaksDetail(t *testing.T) {
 	err := &ProviderError{Status: 400, Code: string(code)}
 	if got := err.Error(); strings.Contains(got, secret) || strings.Contains(got, "quota") {
 		t.Fatalf("error leaked provider detail: %q", got)
+	}
+}
+
+// Cases mirror DSH packages/llm/llm/src/error.ts classifier behaviour.
+func TestContextWindowWording(t *testing.T) {
+	for _, detail := range []string{
+		"context length exceeded",
+		"context_window_exceeded",
+		"maximum context window",
+		"max supported context length",
+		"prompt is too long for the model",
+		"request is too large for this model's context window",
+		"input exceeds the model's context window",
+	} {
+		if !IsContextWindowExceeded(detail) {
+			t.Errorf("not classified as context overflow: %q", detail)
+		}
+	}
+	for _, detail := range []string{"request timeout", "token limit", "prompt is too long", "context"} {
+		if IsContextWindowExceeded(detail) {
+			t.Errorf("false positive: %q", detail)
+		}
+	}
+}
+
+func TestQuotaWording(t *testing.T) {
+	for _, detail := range []string{
+		"insufficient quota", "insufficient_balance", "quota exceeded",
+		"usage limit reached", "you exceeded your current quota",
+		"balance depleted", "credits exhausted", "out of credits", "out of budget",
+	} {
+		if !IsQuotaExceeded(detail) {
+			t.Errorf("not classified as quota: %q", detail)
+		}
+	}
+	for _, detail := range []string{"rate limit reached", "billing", "quota"} {
+		if IsQuotaExceeded(detail) {
+			t.Errorf("false positive: %q", detail)
+		}
 	}
 }
