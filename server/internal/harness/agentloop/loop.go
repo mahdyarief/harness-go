@@ -106,7 +106,9 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 			}
 			// A provider-side stream cut leaves text the user already saw.
 			// Resume it once per budget instead of returning a partial answer.
-			cut := result.Content != "" && errors.Is(err, ai.ErrProvider) &&
+			// A stream that ends without [DONE] surfaces as ErrOutput, a
+			// dropped connection as ErrProvider; both are resumable cuts.
+			cut := result.Content != "" && (errors.Is(err, ai.ErrProvider) || errors.Is(err, ai.ErrOutput)) &&
 				partialContinuations < cfg.MaxPartialContinuations && outerCtx.Err() == nil
 			if cut {
 				partialContinuations++
@@ -224,16 +226,27 @@ func accumulate(out *services.Outcome, result ai.ChatResult) {
 func (l *defaultLoop) call(ctx context.Context, model services.LLM, history []ai.Message, opts ai.ChatOptions, sink services.Sink, cfg services.LoopConfig) (ai.ChatResult, error) {
 	policy := hsgllm.DefaultRetryPolicy()
 	policy.MaxRetries = cfg.MaxRetries
+	// Usage is summed over every attempt so failed attempts are still billed.
+	var promptTokens, completionTokens int
 	attempt := 0
 	for {
-		emitted := false
+		// The gateway returns usage only on error, so the text the user already
+		// saw is captured here for resume and persistence.
+		var streamed strings.Builder
 		result, err := model.ChatStream(ctx, history, opts, func(d ai.StreamDelta) error {
 			if d.Content == "" {
 				return nil
 			}
-			emitted = true
+			streamed.WriteString(d.Content)
 			return sink(services.AIEvent{Type: "delta", Text: d.Content})
 		})
+		promptTokens += max(0, result.PromptTokens)
+		completionTokens += max(0, result.CompletionTokens)
+		result.PromptTokens, result.CompletionTokens = promptTokens, completionTokens
+		emitted := streamed.Len() > 0
+		if err != nil && emitted {
+			result.Content = streamed.String()
+		}
 		if err == nil || emitted || ctx.Err() != nil || !policy.Retryable(err) || attempt >= cfg.MaxRetries {
 			return result, err
 		}
