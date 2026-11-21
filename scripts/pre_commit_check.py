@@ -137,10 +137,13 @@ def check_secret_and_hygiene(
         (entry["name"], re.compile(entry["regex"])) for entry in rules["secret_patterns"]
     ]
     placeholders = [p.lower() for p in rules["secret_placeholders"]]
+    secret_allowlist = rules.get("secret_scan_allowlist", [])
     for path in paths:
         target = repo_root / path
         if not target.is_file():
             continue
+        normalized = path.replace("\\", "/")
+        scan_secrets = not any(fnmatch(normalized, p) for p in secret_allowlist)
         if target.stat().st_size > rules["max_file_bytes"] and not (
             path.endswith("lock.yaml") or path.endswith("package-lock.json")
         ):
@@ -159,14 +162,15 @@ def check_secret_and_hygiene(
                 issues.append(Issue("hygiene", path, number, "trailing whitespace"))
             if any(line.startswith(marker) for marker in CONFLICT_MARKERS):
                 issues.append(Issue("hygiene", path, number, "git conflict marker"))
-            for name, pattern in compiled:
-                match = pattern.search(line)
-                if not match:
-                    continue
-                value = match.group(2) if match.lastindex and match.lastindex >= 2 else ""
-                if value and any(p in value.lower() for p in placeholders):
-                    continue
-                issues.append(Issue("secret", path, number, f"possible {name}"))
+            if scan_secrets:
+                for name, pattern in compiled:
+                    match = pattern.search(line)
+                    if not match:
+                        continue
+                    value = match.group(2) if match.lastindex and match.lastindex >= 2 else ""
+                    if value and any(p in value.lower() for p in placeholders):
+                        continue
+                    issues.append(Issue("secret", path, number, f"possible {name}"))
     return issues
 
 
@@ -178,6 +182,32 @@ def staged_files() -> list[str]:
 def run_command(cmd: list[str], cwd: Path) -> tuple[bool, str]:
     result = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     return result.returncode == 0, (result.stdout + result.stderr).strip()
+
+
+def node_bin(tool: Path, web_root: Path) -> list[str]:
+    if tool.exists() and tool.read_bytes()[:2] == b"#!":
+        package = "prettier" if "prettier" in tool.name else "eslint"
+        package_root = web_root / "node_modules" / package
+        manifest = package_root / "package.json"
+        bin_field = json.loads(manifest.read_text(encoding="utf-8"))["bin"]
+        entry = bin_field[package] if isinstance(bin_field, dict) else bin_field
+        return ["node", str(package_root / entry)]
+    return [str(tool)]
+
+
+def check_web_lint(
+    paths: list[str], web_root: Path, prettier: Path, eslint: Path
+) -> tuple[list[Issue], list[Warning]]:
+    issues: list[Issue] = []
+    relative = [str(Path(p).relative_to("web")) for p in paths]
+    ok, output = run_command([*node_bin(prettier, web_root), "--check", *relative], web_root)
+    if not ok:
+        for line in output.splitlines():
+            issues.append(Issue("prettier", line or "<prettier>", 1, "run prettier --write"))
+    ok, output = run_command([*node_bin(eslint, web_root), *relative], web_root)
+    if not ok:
+        issues.append(Issue("eslint", "<web>", 1, output or "eslint failed"))
+    return issues, []
 
 
 def check_format_and_lint(paths: list[str]) -> tuple[list[Issue], list[Warning]]:
@@ -203,16 +233,9 @@ def check_format_and_lint(paths: list[str]) -> tuple[list[Issue], list[Warning]]
     ]
     if web_files and not (prettier.exists() and eslint.exists()):
         warnings.append(Warning("skipped web format/lint, web/node_modules missing"))
-    else:
-        relative = [str(Path(p).relative_to("web")) for p in web_files]
-        if relative:
-            ok, output = run_command([str(prettier), "--check", *relative], web_root)
-            if not ok:
-                for line in output.splitlines():
-                    issues.append(Issue("prettier", line or "<prettier>", 1, "run prettier --write"))
-            ok, output = run_command([str(eslint), *relative], web_root)
-            if not ok:
-                issues.append(Issue("eslint", "<web>", 1, output or "eslint failed"))
+    elif web_files:
+        web_issues, _ = check_web_lint(web_files, web_root, prettier, eslint)
+        issues += web_issues
     return issues, warnings
 
 

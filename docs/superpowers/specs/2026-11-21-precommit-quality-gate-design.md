@@ -102,7 +102,7 @@ Pola yang ditolak (dicek pada baris yang ditambahkan saja):
 - Marker konflik Git (`<<<<<<<`, `=======`, `>>>>>>>`) pada baris baru.
 - Trailing whitespace pada baris baru.
 - File `.env` yang ikut ke-stage (kecuali `*.example`).
-- File baru/besaran >1 MB.
+- File baru/besaran >1 MB, kecuali `pnpm-lock.yaml` dan `package-lock.json` yang memang besar secara alami.
 
 Karena checker hanya melihat baris yang ditambahkan (`git diff --cached --unified=0`), file lama yang sudah mengandung pola tidak langsung menggagal commit berikutnya.
 

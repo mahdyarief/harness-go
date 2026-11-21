@@ -90,6 +90,16 @@ chore: bump pnpm to 11.10.0
 One logical change per commit. If a commit touches both halves of the repo,
 explain in the body why the change cannot be split.
 
+## Pre-commit quality gate
+
+After `pnpm install`, Husky installs two hooks: `pre-commit` (500-line limit,
+gofmt, Prettier, ESLint, `go vet`, and secret/hygiene scanning) and `commit-msg`
+(Conventional Commits). The gate checks only staged files, so pre-existing
+violations do not block unrelated work. Files already over 500 lines are
+allowed as long as they do not grow; the documented exceptions live in
+`scripts/pre_commit_rules.json`. Run `make check-commit MSG="feat: contoh"`
+to verify manually without committing.
+
 ## Pull requests
 
 - Keep the diff focused. Unrelated refactors belong in their own pull request.

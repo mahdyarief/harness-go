@@ -7,6 +7,7 @@ SHELL := /bin/bash
 SERVER_DIR := server
 WEB_DIR := web
 PNPM ?= corepack pnpm
+PYTHON ?= python3
 COMPOSE ?= docker compose
 
 ## help: print this help message
@@ -67,6 +68,12 @@ lint:
 fmt:
 	cd $(WEB_DIR) && $(PNPM) format
 	cd $(SERVER_DIR) && gofmt -w .
+
+## check-commit: run the pre-commit quality gate against staged files
+.PHONY: check-commit
+check-commit:
+	@$(PYTHON) scripts/pre_commit_check.py files
+	@if [ -n "$(MSG)" ]; then printf '%s\n' "$(MSG)" > .git/precommit-msg.tmp && $(PYTHON) scripts/pre_commit_check.py message .git/precommit-msg.tmp; rc=$$?; rm -f .git/precommit-msg.tmp; exit $$rc; fi
 
 ## audit: run the gofi and vine layer/env audits (needs the ai-coding-skills plugin)
 .PHONY: audit

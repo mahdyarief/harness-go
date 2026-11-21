@@ -111,7 +111,7 @@ class SecretTest(unittest.TestCase):
                 {"name": "aws_access_key", "regex": "\\bAKIA[A-Z0-9]{16}\\b"},
                 {"name": "hardcoded_secret", "regex": "(?i)(password)\\s*[:=]\\s*['\\\"]([^'\\\"]{6,})['\\\"]"},
             ],
-            "secret_placeholders": ["changeme", "example", "xxx"],
+            "secret_placeholders": ["changeme", "example", "xxx", "testkey"],
         }
 
     def scan(self, content: str, path: str = "server/config.go"):
@@ -123,8 +123,19 @@ class SecretTest(unittest.TestCase):
             return checker.check_secret_and_hygiene([path], self.rules, root)
 
     def test_aws_key_detected(self):
-        issues = self.scan("key = 'AKIAIOSFODNN7EXAMPLE'\n")
+        issues = self.scan("key = 'AKIA1234567890ABCDEF'\n")
         self.assertTrue(any(i.category == "secret" for i in issues))
+
+    def test_placeholder_key_allowed(self):
+        issues = self.scan("key = 'AKIAEXAMPLE0000000000'\n")
+        self.assertEqual(issues, [])
+
+    def test_secret_allowlisted_test_fixture_passes(self):
+        self.rules["secret_scan_allowlist"] = ["scripts/test_*.py"]
+        issues = self.scan(
+            "key = 'AKIA1234567890ABCDEF'\n", path="scripts/test_fixture.py"
+        )
+        self.assertEqual([i for i in issues if i.category == "secret"], [])
 
     def test_hardcoded_password_detected(self):
         issues = self.scan("password = \"supersecret\"\n")
@@ -171,6 +182,50 @@ class MainTest(unittest.TestCase):
 
     def test_help_returns_zero(self):
         self.assertEqual(checker.main(["--help"]), 0)
+
+
+class NodeBinTest(unittest.TestCase):
+    def test_node_bin_uses_node_for_shell_shim(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            shim = root / "node_modules/.bin/prettier"
+            shim.parent.mkdir(parents=True)
+            shim.write_text("#!/bin/sh\necho shim\n", encoding="utf-8")
+            module = root / "node_modules/prettier/bin/prettier.cjs"
+            module.parent.mkdir(parents=True)
+            module.write_text("", encoding="utf-8")
+            (root / "node_modules/prettier/package.json").write_text(
+                json.dumps({"bin": {"prettier": "./bin/prettier.cjs"}}), encoding="utf-8"
+            )
+            eslint_shim = root / "node_modules/.bin/eslint"
+            eslint_shim.write_text("#!/bin/sh\n", encoding="utf-8")
+            eslint_module = root / "node_modules/eslint/bin/eslint.js"
+            eslint_module.parent.mkdir(parents=True)
+            eslint_module.write_text("", encoding="utf-8")
+            (root / "node_modules/eslint/package.json").write_text(
+                json.dumps({"bin": {"eslint": "./bin/eslint.js"}}), encoding="utf-8"
+            )
+            with unittest.mock.patch.object(checker, "run_command", return_value=(True, "")) as run:
+                checker.check_web_lint(["web/src/a.ts"], root, shim, eslint_shim)
+                cmd = run.call_args_list[0][0][0]
+                self.assertEqual(cmd[0], "node")
+                self.assertIn("prettier.cjs", cmd[1])
+                self.assertIn("eslint.js", run.call_args_list[1][0][0][1])
+
+    def test_node_bin_uses_direct_executable_on_posix(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            exe = root / ".bin" / "prettier"
+            exe.parent.mkdir()
+            exe.write_text("binary", encoding="utf-8")
+            exe.chmod(0o755)
+            eslint_exe = root / ".bin" / "eslint"
+            eslint_exe.write_text("binary", encoding="utf-8")
+            eslint_exe.chmod(0o755)
+            with unittest.mock.patch.object(checker, "run_command", return_value=(True, "")) as run:
+                checker.check_web_lint(["web/src/a.ts"], root, exe, eslint_exe)
+                cmd = run.call_args_list[0][0][0]
+                self.assertEqual(str(cmd[0]), str(exe))
 
 
 if __name__ == "__main__":

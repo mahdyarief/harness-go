@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+cd "$(dirname "$0")/.."
+PYTHON="${PYTHON:-python3}"
+command -v "$PYTHON" >/dev/null 2>&1 || PYTHON=python
+exec "$PYTHON" scripts/pre_commit_check.py files

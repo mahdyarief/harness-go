@@ -32,3 +32,7 @@ server/data/
 # Binary hasil `go build`.
 /server/api
 *.log
+
+# Python bytecode
+__pycache__/
+*.pyc
