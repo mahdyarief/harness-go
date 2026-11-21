@@ -22,20 +22,20 @@ type ReminderConfig struct {
 }
 
 type Reminder struct {
-	Text   string
-	Source string
-	Form   string
+	Text    string
+	Source  string
+	Form    string
 	Summary string
 }
 
 type ReminderTool struct {
-	thresholds  []int
+	thresholds   []int
 	thresholdSet map[int]bool
-	include     []*regexp.Regexp
-	exclude     []*regexp.Regexp
-	preview     int
-	key         string
-	count       int
+	include      []*regexp.Regexp
+	exclude      []*regexp.Regexp
+	preview      int
+	key          string
+	count        int
 }
 
 func NewReminderTool(cfg ReminderConfig) (ReminderTool, error) {

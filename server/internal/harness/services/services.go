@@ -55,6 +55,43 @@ type RunRequest struct {
 
 type Sink func(AIEvent) error
 
+// GuardAction is what a guard wants the harness to do after a turn.
+type GuardAction int
+
+const (
+	GuardContinue GuardAction = iota
+	GuardStop
+)
+
+// GuardVerdict is a guard's decision. Reason is user-facing Indonesian text and
+// must not contain tool output, arguments, or provider errors.
+type GuardVerdict struct {
+	Action GuardAction
+	Reason string
+}
+
+func Allow() GuardVerdict             { return GuardVerdict{} }
+func Stop(reason string) GuardVerdict { return GuardVerdict{Action: GuardStop, Reason: reason} }
+func (v GuardVerdict) Allowed() bool  { return v.Action == GuardContinue }
+
+// GuardMemory is per-run scratch space, unique per guard.
+type GuardMemory map[string]int
+
+func (m GuardMemory) Incr(key string) int { m[key]++; return m[key] }
+
+// GuardTurn is what a LoopGuard sees after a turn's tools have run.
+type GuardTurn struct {
+	Turn    int
+	Records []ToolRecord
+	History []ToolRecord
+}
+
+// LoopGuard inspects one finished turn and may end the run gracefully.
+type LoopGuard interface {
+	Name() string
+	Inspect(mem GuardMemory, turn GuardTurn) GuardVerdict
+}
+
 type AIEvent struct {
 	Type       string `json:"type"`
 	Text       string `json:"text,omitempty"`
@@ -109,6 +146,7 @@ type LoopConfig struct {
 	ReminderPreviewChars    int
 	ReminderInclude         []string
 	ReminderExclude         []string
+	LoopGuards              []LoopGuard
 }
 
 type Agent interface {

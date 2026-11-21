@@ -65,6 +65,7 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		return services.Outcome{}, reminderErr
 	}
 	specs := toolSpecs(tools)
+	guardMemory := make([]services.GuardMemory, len(cfg.LoopGuards))
 	compacted := 0
 	nudges := 0
 	partialContinuations := 0
@@ -136,6 +137,24 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 				out.Partial = true
 				out.DurationMs = int(l.now().Sub(started).Milliseconds())
 				return out, services.ErrToolBudget
+			}
+			for i, g := range cfg.LoopGuards {
+				if g == nil {
+					continue
+				}
+				if guardMemory[i] == nil {
+					guardMemory[i] = services.GuardMemory{}
+				}
+				verdict := g.Inspect(guardMemory[i], services.GuardTurn{
+					Turn: turn, Records: out.Tools, History: out.Tools,
+				})
+				if verdict.Allowed() {
+					continue
+				}
+				_ = sink(services.AIEvent{Type: "delta", Text: verdict.Reason})
+				out.Content = verdict.Reason
+				out.DurationMs = int(l.now().Sub(started).Milliseconds())
+				return out, nil
 			}
 			continue
 		}

@@ -226,4 +226,3 @@ func WaterfallNext(s *Scope, name string, base func() error) error {
 	}
 	return next()
 }
-

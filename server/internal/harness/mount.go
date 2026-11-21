@@ -17,6 +17,7 @@ import (
 
 type MountConfig struct {
 	LoopConfig services.LoopConfig
+	LoopGuards []services.LoopGuard
 }
 
 func Mount(gw *ai.Gateway, registry *agent.Registry, cfg MountConfig) (*scope.Scope, error) {
@@ -24,6 +25,7 @@ func Mount(gw *ai.Gateway, registry *agent.Registry, cfg MountConfig) (*scope.Sc
 	if err != nil {
 		return nil, err
 	}
+	resolved.LoopGuards = cfg.LoopGuards
 	s := scope.New(nil)
 	if err := s.Provide(services.LLMKey, llm.New(gw), nil); err != nil {
 		return nil, err
