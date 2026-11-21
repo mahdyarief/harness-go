@@ -1,0 +1,21 @@
+{
+  "loc_limit": 500,
+  "loc_allowlist": [
+    "web/src/components/ui/**",
+    "web/src/routeTree.gen.ts",
+    "server/migrations/**/*.sql",
+    "**/*_test.go",
+    "server/cmd/api/*_integration_test.go",
+    "scripts/test_*.py"
+  ],
+  "max_file_bytes": 1048576,
+  "commit_types": ["feat", "fix", "docs", "chore", "refactor", "test", "perf", "ci", "build", "revert"],
+  "secret_patterns": [
+    {"name": "private_key", "regex": "-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----"},
+    {"name": "aws_access_key", "regex": "\\b(?:AKIA|ASIA)[A-Z0-9]{16}\\b"},
+    {"name": "github_token", "regex": "\\b(?:gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\\b"},
+    {"name": "slack_token", "regex": "\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b"},
+    {"name": "hardcoded_secret", "regex": "(?i)\\b(password|api_key|secret|token)\\s*[:=]\\s*['\\\"]([^'\\\"]{6,})['\\\"]"}
+  ],
+  "secret_placeholders": ["changeme", "example", "xxx", "...", "placeholder", "dummy"]
+}
