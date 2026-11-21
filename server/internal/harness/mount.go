@@ -20,11 +20,15 @@ type MountConfig struct {
 }
 
 func Mount(gw *ai.Gateway, registry *agent.Registry, cfg MountConfig) (*scope.Scope, error) {
+	resolved, err := agentloop.ResolveLoopConfig(cfg.LoopConfig)
+	if err != nil {
+		return nil, err
+	}
 	s := scope.New(nil)
 	if err := s.Provide(services.LLMKey, llm.New(gw), nil); err != nil {
 		return nil, err
 	}
-	if err := s.Provide(services.LoopConfigKey, cfg.LoopConfig, nil); err != nil {
+	if err := s.Provide(services.LoopConfigKey, resolved, nil); err != nil {
 		return nil, err
 	}
 	if err := s.Provide(services.ToolsKey, tools.Adapt(registry), nil); err != nil {

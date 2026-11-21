@@ -73,6 +73,10 @@ type LoopConfig struct {
 	MaxContinuationNudges   int
 	MaxPartialContinuations int
 	ForceToolCall           string
+	ReminderThresholds      []int
+	ReminderPreviewChars    int
+	ReminderInclude         []string
+	ReminderExclude         []string
 }
 
 type Agent interface {

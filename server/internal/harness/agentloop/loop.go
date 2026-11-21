@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"hsg/internal/harness/guard"
 	"hsg/internal/harness/scope"
@@ -28,7 +29,10 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 	if !ok {
 		cfg = services.LoopConfig{}
 	}
-	cfg = withDefaults(cfg)
+	cfg, err := ResolveLoopConfig(cfg)
+	if err != nil {
+		return services.Outcome{}, err
+	}
 	llm, ok := scope.Require(l.scope, services.LLMKey)
 	if !ok {
 		return services.Outcome{}, services.ErrLoopMissing
@@ -45,6 +49,15 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		history = append([]ai.Message{{Role: "system", Content: req.SystemText}}, history...)
 	}
 	repeatTool := guard.NewRepeatTool(8)
+	reminder, reminderErr := guard.NewReminderTool(guard.ReminderConfig{
+		Thresholds:            cfg.ReminderThresholds,
+		Include:               cfg.ReminderInclude,
+		Exclude:               cfg.ReminderExclude,
+		ArgumentsPreviewChars: cfg.ReminderPreviewChars,
+	})
+	if reminderErr != nil {
+		return services.Outcome{}, reminderErr
+	}
 	specs := toolSpecs(tools)
 	compacted := 0
 
@@ -68,7 +81,7 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		history = append(history, assistant)
 
 		if len(result.ToolCalls) > 0 {
-			messages, records, refs, err := l.dispatch(ctx, tools, result.ToolCalls, turn, sink, cfg, repeatTool, &out)
+			messages, records, refs, err := l.dispatch(ctx, tools, result.ToolCalls, turn, sink, cfg, repeatTool, &reminder, &out)
 			out.References = append(out.References, refs...)
 			out.Tools = append(out.Tools, records...)
 			if err != nil {
@@ -91,49 +104,6 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 	out.Partial = true
 	out.DurationMs = int(l.now().Sub(started).Milliseconds())
 	return out, nil
-}
-
-func withDefaults(c services.LoopConfig) services.LoopConfig {
-	if c.MaxTurns <= 0 || c.MaxTurns > 8 {
-		c.MaxTurns = 6
-	}
-	if c.MaxToolCalls <= 0 || c.MaxToolCalls > 16 {
-		c.MaxToolCalls = 8
-	}
-	if c.MaxDuration <= 0 || c.MaxDuration > 2*time.Minute {
-		c.MaxDuration = 90 * time.Second
-	}
-	if c.MaxTotalTokens <= 0 || c.MaxTotalTokens > 32768 {
-		c.MaxTotalTokens = 32768
-	}
-	if c.ToolResultBytes <= 0 || c.ToolResultBytes > 32768 {
-		c.ToolResultBytes = 8192
-	}
-	if c.MaxToolResultBytes <= 0 || c.MaxToolResultBytes > 65536 {
-		c.MaxToolResultBytes = 24576
-	}
-	if c.MaxToolConcurrency <= 0 || c.MaxToolConcurrency > 8 {
-		c.MaxToolConcurrency = 4
-	}
-	if c.ToolTimeout <= 0 || c.ToolTimeout > 30*time.Second {
-		c.ToolTimeout = 15 * time.Second
-	}
-	if c.ContextTokenCap <= 0 || c.ContextTokenCap > 32768 {
-		c.ContextTokenCap = 12288
-	}
-	if c.KeepLastMessages <= 0 || c.KeepLastMessages > 32 {
-		c.KeepLastMessages = 12
-	}
-	if c.MaxRetries < 0 || c.MaxRetries > 3 {
-		c.MaxRetries = 1
-	}
-	if c.MaxContinuationNudges < 0 || c.MaxContinuationNudges > 20 {
-		c.MaxContinuationNudges = 8
-	}
-	if c.MaxPartialContinuations <= 0 || c.MaxPartialContinuations > 8 {
-		c.MaxPartialContinuations = 2
-	}
-	return c
 }
 
 func toolSpecs(tools services.Tools) []ai.ToolSpec {
@@ -215,14 +185,14 @@ func (l *defaultLoop) call(ctx context.Context, llm services.LLM, history []ai.M
 	return last, lastErr
 }
 
-func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls []ai.ToolCall, turn int, sink services.Sink, cfg services.LoopConfig, repeat *guard.RepeatTool, out *services.Outcome) ([]ai.Message, []services.ToolRecord, []services.Reference, error) {
+func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls []ai.ToolCall, turn int, sink services.Sink, cfg services.LoopConfig, repeat *guard.RepeatTool, reminder *guard.ReminderTool, out *services.Outcome) ([]ai.Message, []services.ToolRecord, []services.Reference, error) {
 	if len(calls) > cfg.MaxToolCalls-out.ToolCalls {
 		calls = calls[:max(0, cfg.MaxToolCalls-out.ToolCalls)]
 	}
 	results := make([]ai.Message, len(calls))
 	records := make([]services.ToolRecord, len(calls))
 	var refs []services.Reference
-	limit := max(cfg.ToolResultBytes, cfg.MaxToolResultBytes)
+	limit := min(cfg.ToolResultBytes, cfg.MaxToolResultBytes)
 
 	type job struct {
 		index int
@@ -247,6 +217,11 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 			results[i] = toolError(call, "arguments do not match schema")
 			records[i] = services.ToolRecord{Turn: turn, Name: tool.Name(), Arguments: call.Function.Arguments, Err: "arguments do not match schema"}
 			continue
+		}
+		if notice := reminder.Observe(tool.Name(), call.Function.Arguments); notice != nil {
+			if err := sink(services.AIEvent{Type: "tool.reminder", Text: notice.Text, ToolName: tool.Name(), ToolCall: call.ID}); err != nil {
+				return nil, nil, nil, err
+			}
 		}
 		if decision := repeat.Check(tool.Name(), canonicalArgs(call.Function.Arguments)); decision.Flagged {
 			results[i] = toolError(call, "identical tool call repeated; choose a different argument or finish the answer")
@@ -360,15 +335,15 @@ func canonicalArgs(raw string) string {
 	return strings.Join(strings.Fields(raw), " ")
 }
 
-func truncate(s string, max int) string {
-	if max <= 0 || len(s) <= max {
+func truncate(s string, limit int) string {
+	if limit <= 0 || len(s) <= limit {
 		return s
 	}
-	cut := max
-	if cut > len(s) {
-		cut = len(s)
+	cut := limit
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
 	}
-	return strings.ToValidUTF8(s[:cut], "") + "\n[truncated: result exceeded budget]"
+	return s[:cut] + "\n[truncated: result exceeded budget]"
 }
 
 func (l *defaultLoop) compact(ctx context.Context, history []ai.Message, specs []ai.ToolSpec, cfg services.LoopConfig, compacted *int) []ai.Message {
