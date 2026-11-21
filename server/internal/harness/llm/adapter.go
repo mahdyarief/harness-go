@@ -22,5 +22,13 @@ func (a *adapter) ChatStream(ctx context.Context, messages []ai.Message, opts ai
 	if a == nil || a.gw == nil {
 		return ai.ChatResult{}, ai.ErrConfig
 	}
-	return a.gw.ChatStream(ctx, messages, opts, onDelta)
+	result, err := a.gw.ChatStream(ctx, messages, opts, onDelta)
+	if err == nil {
+		return result, nil
+	}
+	code := FailureCodeOf(err)
+	if code == "" {
+		code = string(CodeTransport)
+	}
+	return result, NewFailure("provider request failed", code, err)
 }

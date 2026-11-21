@@ -81,6 +81,7 @@ type ChatResult struct {
 // caller can decide whether a retry is safe without leaking response content.
 type ProviderError struct {
 	Status    int
+	Code      string
 	Retryable bool
 }
 
@@ -95,6 +96,20 @@ func (e *ProviderError) Unwrap() error { return ErrProvider }
 func retryableStatus(status int) bool {
 	return status == http.StatusTooManyRequests || status == http.StatusInternalServerError ||
 		status == http.StatusBadGateway || status == http.StatusServiceUnavailable || status == http.StatusGatewayTimeout
+}
+
+// statusError classifies a non-200 response using a bounded body slice. The
+// body is discarded immediately: ProviderError never carries provider text.
+func statusError(resp *http.Response) *ProviderError {
+	const detailLimit = 4096
+	detail, _ := io.ReadAll(io.LimitReader(resp.Body, detailLimit))
+	status := resp.StatusCode
+	code := ClassifyHTTP(status, string(detail))
+	return &ProviderError{
+		Status:    status,
+		Code:      string(code),
+		Retryable: retryableStatus(status) || DefaultRetryableCodes[string(code)],
+	}
 }
 
 // validateMessages rejects everything the gateway cannot safely forward. The
@@ -250,7 +265,7 @@ func (g *Gateway) Chat(ctx context.Context, messages []Message, opts ChatOptions
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return empty, &ProviderError{Status: resp.StatusCode, Retryable: retryableStatus(resp.StatusCode)}
+		return empty, statusError(resp)
 	}
 	raw, err := readCapped(resp.Body, g.config.MaxResponseBytes)
 	if err != nil {
@@ -263,7 +278,7 @@ func providerTransportError(ctx context.Context, err error) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
-	return ErrProvider
+	return &ProviderError{Code: string(CodeTransport), Retryable: true}
 }
 
 func readCapped(r io.Reader, limit int64) ([]byte, error) {
@@ -400,7 +415,7 @@ func (g *Gateway) ChatStream(ctx context.Context, messages []Message, opts ChatO
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return empty, &ProviderError{Status: resp.StatusCode, Retryable: retryableStatus(resp.StatusCode)}
+		return empty, statusError(resp)
 	}
 	return readEventStream(resp.Body, g.config.MaxResponseBytes, g.outputLimit(opts.MaxTokens), onDelta)
 }
