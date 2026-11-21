@@ -48,6 +48,53 @@ def git(*args: str) -> str:
     return result.stdout
 
 
+LOC_EXTENSIONS = {".go", ".ts", ".tsx", ".js", ".jsx", ".json", ".sql", ".sh"}
+
+
+def allowed_by_allowlist(path: str, rules: dict) -> bool:
+    normalized = path.replace("\\", "/")
+    return any(fnmatch(normalized, pattern) for pattern in rules.get("loc_allowlist", []))
+
+
+def line_count(path: Path) -> int:
+    return len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+
+
+def old_line_count(path: str, repo_root: Path) -> int | None:
+    try:
+        blob = git("show", f":{path}")
+    except subprocess.CalledProcessError:
+        return None
+    return len(blob.splitlines())
+
+
+def check_loc(paths: list[str], rules: dict, repo_root: Path = REPO_ROOT) -> list[Issue]:
+    limit = rules["loc_limit"]
+    issues: list[Issue] = []
+    for path in paths:
+        suffix = Path(path).suffix.lower()
+        if suffix not in LOC_EXTENSIONS or allowed_by_allowlist(path, rules):
+            continue
+        target = repo_root / path
+        if not target.exists():
+            continue
+        current = line_count(target)
+        if current <= limit:
+            continue
+        previous = old_line_count(path, repo_root)
+        if previous is not None and current <= previous:
+            continue
+        issues.append(
+            Issue(
+                "loc",
+                path,
+                1,
+                f"{current} lines exceeds {limit}; split the file or extend the documented allowlist",
+            )
+        )
+    return issues
+
+
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or args[0] in {"-h", "--help"}:
