@@ -19,6 +19,8 @@ const (
 	CodeContextWindow  FailureCode = "CONTEXT_WINDOW_EXCEEDED"
 	CodeAuth           FailureCode = "AUTH"
 	CodeInvalidRequest FailureCode = "INVALID_REQUEST"
+	CodeStreamClosed   FailureCode = "STREAM_CLOSED"
+	CodeUnknown        FailureCode = "UNKNOWN"
 )
 
 // DefaultRetryableCodes mirrors the DSH llm retry policy's initial set.

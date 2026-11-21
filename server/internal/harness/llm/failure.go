@@ -38,6 +38,8 @@ const (
 	CodeContextWindow  = ai.CodeContextWindow
 	CodeAuth           = ai.CodeAuth
 	CodeInvalidRequest = ai.CodeInvalidRequest
+	CodeStreamClosed   = ai.CodeStreamClosed
+	CodeUnknown        = ai.CodeUnknown
 )
 
 var DefaultRetryableCodes = ai.DefaultRetryableCodes

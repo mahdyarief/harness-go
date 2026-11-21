@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"errors"
 
 	"hsg/internal/harness/services"
 	"hsg/internal/lib/ai"
@@ -26,9 +27,26 @@ func (a *adapter) ChatStream(ctx context.Context, messages []ai.Message, opts ai
 	if err == nil {
 		return result, nil
 	}
-	code := FailureCodeOf(err)
-	if code == "" {
-		code = string(CodeTransport)
+	return result, NewFailure("provider request failed", failureCode(err), err)
+}
+
+// failureCode maps a gateway error to a stable code. Only genuine transport
+// faults become retryable codes: local rejections (input, config, response
+// size) and client aborts are UNKNOWN so the retry policy leaves them alone.
+// A stream that ended without [DONE] is STREAM_CLOSED, which DSH does not
+// retry by default; the loop resumes it instead when text was streamed.
+func failureCode(err error) string {
+	if code := FailureCodeOf(err); code != "" {
+		return code
 	}
-	return result, NewFailure("provider request failed", code, err)
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return string(CodeTimeout)
+	case errors.Is(err, ai.ErrOutput):
+		return string(CodeStreamClosed)
+	case errors.Is(err, ai.ErrProvider):
+		return string(CodeTransport)
+	default:
+		return string(CodeUnknown)
+	}
 }
