@@ -211,9 +211,10 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		return out, nil
 	}
 
+	_ = sink(services.AIEvent{Type: "budget", Error: services.ErrTurnBudget.Error()})
 	out.Partial = true
 	out.DurationMs = int(l.now().Sub(started).Milliseconds())
-	return out, nil
+	return out, services.ErrTurnBudget
 }
 
 func toolSpecs(tools services.Tools) []ai.ToolSpec {

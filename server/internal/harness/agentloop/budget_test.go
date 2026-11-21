@@ -126,3 +126,32 @@ func TestTokenBudgetIgnoresPromptTokens(t *testing.T) {
 		t.Fatalf("last MaxTokens=%d want %d", last, 20000-40)
 	}
 }
+
+// A model that keeps calling tools until the turn budget runs out must end
+// with the legacy "turn budget exhausted" budget event and an error, not a
+// silent empty answer.
+func TestTurnBudgetExhaustionIsReported(t *testing.T) {
+	var script []ai.ChatResult
+	for i := 0; i < 3; i++ {
+		script = append(script, ai.ChatResult{FinishReason: "tool_calls",
+			ToolCalls: []ai.ToolCall{{ID: string(rune('a' + i)), Type: "function",
+				Function: ai.ToolCallFunction{Name: "lookup", Arguments: `{"q":"` + string(rune('a'+i)) + `"}`}}}})
+	}
+	llm := &recordingLLM{script: script}
+	s := mountLoop(t, llm, &fakeTool{}, services.LoopConfig{MaxTurns: 3})
+	var events []services.AIEvent
+	out, err := agentloop.New(s).Run(context.Background(), services.RunRequest{Messages: userMsg("x")},
+		func(e services.AIEvent) error { events = append(events, e); return nil })
+	if services.ErrorCode(err) != "TURN_BUDGET_EXHAUSTED" || !out.Partial {
+		t.Fatalf("err=%v partial=%v; want TURN_BUDGET_EXHAUSTED", err, out.Partial)
+	}
+	var found bool
+	for _, e := range events {
+		if e.Type == "budget" && e.Error == "turn budget exhausted" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("no turn budget event in %+v", events)
+	}
+}

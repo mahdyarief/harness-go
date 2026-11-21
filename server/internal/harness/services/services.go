@@ -19,6 +19,9 @@ var (
 	// ErrTokenBudget terminates the loop before the next model request when
 	// the accumulated completion tokens exceed MaxTotalTokens.
 	ErrTokenBudget = NewHarnessError("token budget exhausted", "TOKEN_BUDGET_EXHAUSTED", nil)
+	// ErrTurnBudget terminates the loop when MaxTurns model calls ran without
+	// a final answer (legacy runner: "turn budget exhausted").
+	ErrTurnBudget = NewHarnessError("turn budget exhausted", "TURN_BUDGET_EXHAUSTED", nil)
 )
 
 const CodeToolNotStarted = "TOOL_NOT_STARTED"
