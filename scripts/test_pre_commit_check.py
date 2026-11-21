@@ -130,6 +130,13 @@ class SecretTest(unittest.TestCase):
         issues = self.scan("key = 'AKIAEXAMPLE0000000000'\n")
         self.assertEqual(issues, [])
 
+    def test_secret_allowlisted_doc_passes(self):
+        self.rules["secret_scan_allowlist"] = ["docs/**/*.md"]
+        issues = self.scan(
+            "regex: \\b(?:AKIA|ASIA)[A-Z0-9]{16}\\b\n", path="docs/spec.md"
+        )
+        self.assertEqual([i for i in issues if i.category == "secret"], [])
+
     def test_secret_allowlisted_test_fixture_passes(self):
         self.rules["secret_scan_allowlist"] = ["scripts/test_*.py"]
         issues = self.scan(

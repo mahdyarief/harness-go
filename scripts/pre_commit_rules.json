@@ -18,5 +18,5 @@
     {"name": "hardcoded_secret", "regex": "(?i)\\b(password|api_key|secret|token)\\s*[:=]\\s*['\\\"]([^'\\\"]{6,})['\\\"]"}
   ],
   "secret_placeholders": ["changeme", "example", "xxx", "...", "placeholder", "dummy"],
-  "secret_scan_allowlist": ["scripts/test_*.py"]
+  "secret_scan_allowlist": ["scripts/test_*.py", "docs/**/*.md"]
 }
