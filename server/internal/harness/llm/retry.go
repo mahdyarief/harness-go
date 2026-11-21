@@ -65,26 +65,6 @@ func (p RetryPolicy) Delay(attempt int) time.Duration {
 	return d
 }
 
-// Do runs op and retries only on the policy's stable codes. A caller can reset
-// the retry budget simply by calling Do again for the next step.
-func (p RetryPolicy) Do(ctx context.Context, op func() (int, error)) (int, error) {
-	sleep := p.Sleep
-	if sleep == nil {
-		sleep = sleepWithContext
-	}
-	var result int
-	var err error
-	for attempt := 0; ; attempt++ {
-		result, err = op()
-		if err == nil || !p.Retryable(err) || attempt >= p.MaxRetries {
-			return result, err
-		}
-		if e := sleep(ctx, p.Delay(attempt+1)); e != nil {
-			return result, e
-		}
-	}
-}
-
 func sleepWithContext(ctx context.Context, d time.Duration) error {
 	timer := time.NewTimer(d)
 	defer timer.Stop()

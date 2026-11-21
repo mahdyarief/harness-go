@@ -247,7 +247,6 @@ var (
 	LLMKey           = scope.NewKey[LLM]("llm")
 	SessionsKey      = scope.NewKey[Sessions]("sessions")
 	SystemPromptKey  = scope.NewKey[string]("systemPrompt")
-	GuardsKey        = scope.NewKey[[]GuardDecision]("guards")
 	SandboxKey       = scope.NewKey[string]("sandboxPolicy")
 	ApprovalKey      = scope.NewKey[string]("approvalPolicy")
 	ToolAllowlistKey = scope.NewKey[[]string]("toolAllowlist")

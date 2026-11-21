@@ -26,14 +26,6 @@ func Get(name string) (Spec, bool) {
 	return spec, ok
 }
 
-func SpecFor(name string) Spec {
-	spec, _ := Get(name)
-	if spec.SandboxMode == "" {
-		return presets["read-only"]
-	}
-	return spec
-}
-
 func Apply(s *scope.Scope, name string) error {
 	spec, ok := presets[name]
 	if !ok {

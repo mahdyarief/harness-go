@@ -43,8 +43,3 @@ const (
 )
 
 var DefaultRetryableCodes = ai.DefaultRetryableCodes
-
-func HTTPCode(status int) FailureCode { return ai.HTTPCode(status) }
-func ClassifyHTTP(status int, detail string) FailureCode {
-	return ai.ClassifyHTTP(status, detail)
-}

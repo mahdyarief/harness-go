@@ -48,40 +48,16 @@ func TestRetryPolicyRoutesOnCode(t *testing.T) {
 	}
 }
 
-func TestRetryStopsOnSleepCancellation(t *testing.T) {
-	p := RetryPolicy{
-		MaxRetries: 3, Initial: time.Millisecond, Max: time.Millisecond, Jitter: 0,
-		Codes: DefaultRetryableCodes,
-		Sleep: func(context.Context, time.Duration) error { return context.Canceled },
-	}
-	var calls int
-	_, err := p.Do(context.Background(), func() (int, error) {
-		calls++
-		return 0, services.NewHarnessError("x", string(CodeRateLimit), nil)
-	})
-	if !errors.Is(err, context.Canceled) {
+// The loop waits between attempts with policy.Sleep (sleepWithContext); a
+// cancelled run must end the wait at once instead of sleeping it out.
+func TestSleepWithContextStopsOnCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	if err := sleepWithContext(ctx, time.Hour); !errors.Is(err, context.Canceled) {
 		t.Fatalf("err=%v; want context.Canceled", err)
 	}
-	if calls != 1 {
-		t.Fatalf("calls=%d; sleep cancellation must stop immediately", calls)
-	}
-}
-
-func TestRetryCountResetsPerStep(t *testing.T) {
-	p := RetryPolicy{
-		MaxRetries: 2, Initial: time.Millisecond, Max: time.Millisecond, Jitter: 0,
-		Codes: DefaultRetryableCodes,
-		Sleep: func(context.Context, time.Duration) error { return nil },
-	}
-	var calls int
-	value, err := p.Do(context.Background(), func() (int, error) {
-		calls++
-		if calls <= 2 {
-			return 0, services.NewHarnessError("x", string(CodeRateLimit), nil)
-		}
-		return 7, nil
-	})
-	if err != nil || value != 7 || calls != 3 {
-		t.Fatalf("value=%d calls=%d err=%v; want 7,3,nil", value, calls, err)
+	if time.Since(start) > time.Second {
+		t.Fatal("sleep ignored cancellation")
 	}
 }
