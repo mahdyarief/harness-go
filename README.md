@@ -16,6 +16,217 @@ server/   Go API, migrations, seeders, Dockerfile
 web/      React SPA (Vite, TanStack Router/Query/Form/Table, shadcn/ui)
 ```
 
+## Agent harness
+
+`server/internal/harness` is a tool-calling agent runtime written in Go. Its
+core behaviour is ported from
+[DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH) at commit
+`2e39e70496aa02986ca6a820c5d497e816b69d7e`. Each port names the DSH source
+file in its doc comment, and each deliberate difference is written down with
+its reason in `.trail/learnings/`. The production chat endpoint
+(`handlers/chat.go`) runs on it.
+
+This section separates what is **implemented and tested** from what is
+**planned**. Only the first group should be cited as existing behaviour.
+
+### Architecture
+
+```mermaid
+flowchart TB
+    subgraph HTTP["HTTP layer (Fiber v3)"]
+        H[handlers/chat.go<br/>SSE stream, billing, persistence]
+    end
+    subgraph HARNESS["server/internal/harness"]
+        M[mount.go<br/>wires one scope per request]
+        S[(scope<br/>typed DI: Key[T],<br/>Provide / Require, events)]
+        L[agentloop<br/>turns · budgets · compaction<br/>retry · resume · nudges]
+        D[dispatch<br/>prepare → tool_start → execute]
+        P[tools.Pipeline<br/>allowlist → sandbox →<br/>approval → tool.before]
+        G[guard<br/>repeat · reminder ·<br/>loop guards · timeout]
+        A[llm adapter<br/>failure codes · backoff]
+        C[core<br/>tool pairing · head+tail retention]
+    end
+    subgraph LIB["server/internal/lib"]
+        GW[ai.Gateway<br/>single egress · host allowlist<br/>no provider body exposed]
+        KB[kb + kbembed<br/>hybrid retrieval]
+    end
+    PROV[(OpenAI-compatible<br/>LLM provider)]
+    PG[(PostgreSQL 18<br/>RLS per tenant)]
+
+    H --> M --> S
+    S --> L
+    L --> A --> GW --> PROV
+    L --> D --> P
+    D --> G
+    L --> C
+    P --> T[tools: search_knowledge, web]
+    T --> KB --> PG
+```
+
+### Agent loop
+
+One run is a sequence of model turns, bounded by budgets that are checked
+before every model call. Rounded boxes are terminal states, and each one is
+reported to the client as an SSE event.
+
+```mermaid
+flowchart TD
+    START([request]) --> COMPACT[measure context:<br/>provider usage baseline + estimate]
+    COMPACT -->|over ContextTokenCap| PRUNE[prune old tool results<br/>head 4096 + tail 1024 chars]
+    PRUNE --> DROP[drop oldest messages at<br/>tool-pairing-safe cut points]
+    COMPACT --> BUDGET
+    DROP --> BUDGET{completion-token<br/>budget left?}
+    BUDGET -->|no| EB([budget: TOKEN_BUDGET_EXHAUSTED])
+    BUDGET -->|yes| CALL[stream model call]
+    CALL -->|retryable failure or<br/>empty response| RETRY[exponential backoff<br/>500 ms · ×2 · max 10 s · jitter 0.1] --> CALL
+    CALL -->|context window exceeded| FORCE[force compaction, retry once] --> CALL
+    CALL -->|stream cut after text| RESUME[resume from last text<br/>max 2] --> CALL
+    CALL -->|tool calls| TOOLS[dispatch tools<br/>parallel read-only, bounded]
+    TOOLS --> TB{tool budget<br/>or loop guard?}
+    TB -->|exhausted| ET([budget: TOOL_BUDGET_EXHAUSTED])
+    TB -->|ok| TURN{turns left?}
+    CALL -->|text answer| DONE{task finished?}
+    DONE -->|stopped early after tools| NUDGE[continuation nudge] --> TURN
+    DONE -->|yes| OK([answer])
+    TURN -->|yes| COMPACT
+    TURN -->|no| EX([budget: TURN_BUDGET_EXHAUSTED])
+```
+
+### Tool call pipeline
+
+Every tool call passes the checks below before the client is told it started,
+so a denied call is never shown as running. Every call gets an answer
+message, including denied, skipped and timed-out calls, so the conversation
+stays valid for OpenAI-compatible providers.
+
+```mermaid
+sequenceDiagram
+    participant M as Model
+    participant L as agentloop
+    participant P as tools.Pipeline
+    participant U as Approver (optional)
+    participant T as Tool
+    M->>L: tool_calls[]
+    L->>L: schema check · repeat guard · reminder
+    L->>P: Prepare(args)
+    P->>P: preset allowlist
+    P->>P: sandbox (write tool in read-only?)
+    alt escalation needed
+        P->>U: ask (policy "ask")
+        U-->>P: approve / reject / none
+    end
+    P->>P: tool.before listeners
+    P-->>L: run func | denial code
+    L-->>M: denial as tool message (if denied)
+    L->>L: emit tool_start
+    L->>T: run under ToolTimeout
+    T-->>L: result (truncated head+tail) | TOOL_TIMEOUT
+    L-->>M: tool message for every call id
+```
+
+### Capability status
+
+| Capability | Status | Where | DSH counterpart |
+|---|---|---|---|
+| Typed dependency scope with events | Implemented | `harness/scope` | Cordis plugin context |
+| Turn, tool-call, duration and completion-token budgets | Implemented | `agentloop/loop.go`, `config.go` | `core/agent-loop` |
+| LLM failure codes, retry set and exponential backoff | Implemented | `harness/llm`, `lib/ai/classify.go` | `llm/llm/src/retry-policy.ts`, `error.ts` |
+| Empty-response retry (`EMPTY_RESPONSE`) | Implemented | `agentloop/loop.go` | retry policy |
+| Stream-cut resume, billed across attempts | Implemented | `agentloop/loop.go` | interrupted `assistant/message` |
+| Compaction: usage baseline, tool-result pruning, safe cuts | Implemented | `agentloop/compact.go`, `core` | `compaction-basic`, tool-result pruner |
+| Tool pipeline: allowlist, sandbox, approval, listeners | Implemented | `harness/tools` | `core/tools/src/pipeline.ts` |
+| Presets `read-only`, `workspace`, `strict` | Implemented | `harness/preset` | `interaction/permission-presets` |
+| Parallel read-only tools, bounded concurrency, hard tool deadline | Implemented | `agentloop/dispatch.go` | `core/tools/src/batch.ts` |
+| Repeat, reminder and repeated-error loop guards | Implemented | `harness/guard` | `guard/*` |
+| Hybrid retrieval (BM25 + vector, weighted RRF) with citations | Implemented | `lib/kb`, `lib/kbembed` | — |
+| Retrieval evaluation | Implemented | `lib/kbeval`, `cmd/kbeval` | — |
+| Approval answerer and loop guards connected to the chat endpoint | Planned | — | `user-approval` |
+| JSON Schema validation, structured (typed) results | Planned | foundation plan, Tasks 1–2 | `core/tools` |
+| Agent profiles and parallel agent teams | Planned | foundation plan, Tasks 3–4 | `subagent-spawn-in-process`, `team` |
+| Append-only run event log, grounded evidence | Planned | foundation plan, Tasks 5–6 | `session-persistence`, `session-projection` |
+| Human review inbox | Planned | foundation plan, Task 7 | `interaction/user-questions` |
+| Rule engine, HTTP service tool, retrieval validity filters | Planned | foundation plan, Tasks 8–10 | — |
+| LLM record/replay, redaction, cost accounting, experiment runner | Planned | foundation plan, Tasks 11–14 | `test-support`, `session-stats`, `benchmarks` |
+
+The foundation plan is
+`docs/superpowers/plans/2026-11-22-harness-foundation-capabilities.md`.
+Coding-agent features of DSH (computer use, browser, shell, SSH, sandbox
+runners, workflow scripts, MCP, summarizer compaction) are intentionally
+left out.
+
+```mermaid
+flowchart LR
+    subgraph DONE["Implemented"]
+        direction TB
+        a1[single-agent loop]
+        a2[budgets & guards]
+        a3[retry & resume]
+        a4[compaction]
+        a5[tool pipeline & presets]
+        a6[hybrid RAG + citations]
+    end
+    subgraph P1["Planned: composition"]
+        direction TB
+        b1[schema validation]
+        b2[structured results]
+        b3[agent profiles]
+        b4[agent teams + reducers]
+    end
+    subgraph P2["Planned: provenance"]
+        direction TB
+        c1[run event log]
+        c2[grounded evidence]
+        c3[human review inbox]
+    end
+    subgraph P3["Planned: knowledge & measurement"]
+        direction TB
+        d1[rule engine]
+        d2[HTTP service tool]
+        d3[retrieval filters]
+        d4[record/replay · redaction]
+        d5[cost · experiment runner]
+    end
+    DONE --> P1 --> P2 --> P3
+```
+
+### Default limits
+
+Defaults are applied by `agentloop.ResolveLoopConfig`. A value outside its
+range is rejected rather than clamped.
+
+| Setting | Default | Allowed range |
+|---|---|---|
+| `MaxTurns` | 6 | 1–8 |
+| `MaxToolCalls` | 8 | 1–16 |
+| `MaxDuration` | 90 s | 1 ms–2 min |
+| `MaxTotalTokens` (completion) | 32,768 | 1–32,768 |
+| `ContextTokenCap` | 12,288 | 1–32,768 |
+| `KeepLastMessages` | 12 | 1–32 |
+| `MaxToolConcurrency` | 4 | 1–8 |
+| `ToolTimeout` | 15 s | 1 ms–30 s |
+| `ToolResultBytes` | 8,192 | 1–32,768 |
+| `MaxRetries` | 1 | 0–3 |
+| `MaxPartialContinuations` | 2 | 1–8 |
+| `MaxContinuationNudges` | 8 | 0–20 |
+
+### Using it in research
+
+- **Provenance.** The DSH revision ported from is pinned above. The parity
+  plan (`docs/superpowers/plans/2026-11-21-dsh-core-parity.md`) lists every
+  gap, the decision taken and the DSH file it maps to, and the git history
+  has one commit per change.
+- **Verification.** The harness packages have 98 test functions, and
+  `lib/ai`, `lib/kb` and `lib/kbeval` have 147 more. Tests use fake models
+  that fail the way the real gateway fails. Run them with
+  `cd server && go test ./internal/harness/... ./internal/lib/...`.
+- **Data handling.** The harness does not process claims or patient data.
+  All provider traffic goes through `lib/ai`, which enforces a host allowlist
+  and never returns provider body text to callers.
+- **Limits of the current release.** It has no run event log, no structured
+  results, no multi-agent orchestration and no LLM record/replay yet (see
+  "Planned" above). Results that depend on those capabilities cannot be
+  reproduced on this release.
+
 ## Requirements
 
 - Go 1.27.3 or newer (the module declares `go 1.27.3`; `GOTOOLCHAIN=auto`
