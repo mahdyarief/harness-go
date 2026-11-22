@@ -2,12 +2,14 @@ package agentloop
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
 
 	"hsg/internal/harness/guard"
 	hsgllm "hsg/internal/harness/llm"
+	"hsg/internal/harness/runlog"
 	"hsg/internal/harness/scope"
 	"hsg/internal/harness/services"
 	"hsg/internal/lib/ai"
@@ -150,6 +152,13 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		out.Turns++
 		overflowRetries = 0
 
+		// Record the turn's model call (usage is billed for every attempt, so
+		// emit even when the provider returned a stream cut or an error). The
+		// log adapter strips the prompt unless LogPrompts is on.
+		callEvent := services.AIEvent{Type: "model/call"}
+		callEvent.Payload = modelCallPayload(history, result.FinishReason, billed)
+		_ = sink(callEvent)
+
 		assistant := ai.Message{Role: "assistant", Content: result.Content, ToolCalls: result.ToolCalls}
 		history = append(history, assistant)
 		if result.PromptTokens > 0 {
@@ -173,13 +182,15 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 				out.DurationMs = int(l.now().Sub(started).Milliseconds())
 				return out, services.ErrToolBudget
 			}
-			if structuredSubmission, ok := terminalResult(tools, result.ToolCalls, records); ok {
+			if structuredSubmission, name, ok := terminalResult(tools, result.ToolCalls, records); ok {
 				out.Structured = structuredSubmission
+				emitStructured(sink, name, structuredSubmission)
 				out.DurationMs = int(l.now().Sub(started).Milliseconds())
 				return out, nil
 			}
 			if submission, ok := requiredSubmission(tools, result.ToolCalls, records, cfg.RequireStructured); ok {
 				out.Structured = submission
+				emitStructured(sink, cfg.RequireStructured, submission)
 				out.DurationMs = int(l.now().Sub(started).Milliseconds())
 				return out, nil
 			}
@@ -264,6 +275,39 @@ func toolSpecs(tools services.Tools) []ai.ToolSpec {
 		return nil
 	}
 	return tools.Specs()
+}
+
+// modelCallPayload builds the model/call audit body. Prompt text is logged
+// only when LogPrompts is on; otherwise the adapter strips it and keeps the
+// request hash.
+func modelCallPayload(history []ai.Message, finishReason string, billed usage) json.RawMessage {
+	body, err := json.Marshal(runlog.ModelCall{
+		PromptTokens:     billed.prompt,
+		CompletionTokens: billed.completion,
+		FinishReason:     finishReason,
+		RequestHash:      runlog.HashRequest(string(mustJSON(history))),
+	})
+	if err != nil {
+		return nil
+	}
+	return body
+}
+
+// emitStructured records a structured/submit event for the winning tool.
+func emitStructured(sink services.Sink, tool string, args json.RawMessage) {
+	payload, err := json.Marshal(runlog.StructuredSubmit{Tool: tool, Arguments: string(args)})
+	if err != nil {
+		return
+	}
+	_ = sink(services.AIEvent{Type: runlog.EventTypeStructured, Payload: payload})
+}
+
+func mustJSON(v any) []byte {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil
+	}
+	return b
 }
 
 func toolExists(specs []ai.ToolSpec, name string) bool {

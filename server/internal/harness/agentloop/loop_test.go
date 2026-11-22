@@ -107,8 +107,22 @@ func TestAgentLoopExecutesToolThenAnswers(t *testing.T) {
 	if len(out.Tools) != 1 || out.Tools[0].Name != "lookup" || out.Tools[0].Result != "hasil:x" {
 		t.Fatalf("tool records = %+v", out.Tools)
 	}
-	if len(events) == 0 || events[0].Type != "tool_start" {
+	if len(events) == 0 || events[0].Type != "model/call" {
 		t.Fatalf("events = %+v", events)
+	}
+	var toolStart, toolResult, structured int
+	for _, ev := range events {
+		switch ev.Type {
+		case "tool_start":
+			toolStart++
+		case "tool/result":
+			toolResult++
+		case "structured/submit":
+			structured++
+		}
+	}
+	if toolStart != 1 || toolResult != 1 || structured != 0 {
+		t.Fatalf("tool events = %+v", events)
 	}
 }
 

@@ -105,7 +105,9 @@ func TestRunAppliesProfilePromptAndLabelsEvents(t *testing.T) {
 	default:
 		t.Fatal("model not called")
 	}
-	if gotEvent.Agent != "named" || gotEvent.Type != "tool_start" {
+	// The last event of a successful submission is the structured/submit
+	// row, labelled with the member's name.
+	if gotEvent.Agent != "named" || gotEvent.Type != "structured/submit" || gotEvent.Payload == nil {
 		t.Fatalf("event = %+v", gotEvent)
 	}
 }

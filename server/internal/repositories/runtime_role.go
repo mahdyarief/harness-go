@@ -13,8 +13,8 @@ type roleQuerier interface {
 // tenantTables must all exist, have RLS enabled and forced. Counting them makes
 // the guard fail closed if a migration is missing, and forces this list to be
 // updated whenever a new tenant-scoped table is added.
-const tenantTables = `('tenants','tenant_memberships','tenant_audit_events','ai_chat_sessions','ai_chat_messages','ai_chat_token_usage','ai_chat_tool_logs','tenant_token_balances','tenant_token_topups','tenant_token_usages','platform_chat_token_usages','audit_logs','knowledge_documents','knowledge_chunks')`
-const tenantTableCount = 14
+const tenantTables = `('tenants','tenant_memberships','tenant_audit_events','ai_chat_sessions','ai_chat_messages','ai_chat_token_usage','ai_chat_tool_logs','tenant_token_balances','tenant_token_topups','tenant_token_usages','platform_chat_token_usages','audit_logs','knowledge_documents','knowledge_chunks','runs','run_events')`
+const tenantTableCount = 16
 
 func TenantRoleUnsafe(ctx context.Context, db roleQuerier) (bool, error) {
 	var unsafe bool

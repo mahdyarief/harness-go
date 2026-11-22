@@ -14,9 +14,10 @@ const (
 
 const structuredNudge = "Finish by calling the required tool with arguments that satisfy its schema."
 
-// terminalResult returns the arguments of the first terminal tool that ran
-// successfully in the batch. Dispatch validated them against its schema.
-func terminalResult(tools services.Tools, calls []ai.ToolCall, records []services.ToolRecord) (json.RawMessage, bool) {
+// terminalResult returns the arguments and tool name of the first terminal
+// tool that ran successfully in the batch. Dispatch validated them against its
+// schema.
+func terminalResult(tools services.Tools, calls []ai.ToolCall, records []services.ToolRecord) (json.RawMessage, string, bool) {
 	for i, call := range calls {
 		if i >= len(records) || records[i].Err != "" {
 			continue
@@ -26,10 +27,10 @@ func terminalResult(tools services.Tools, calls []ai.ToolCall, records []service
 			continue
 		}
 		if terminal, ok := tool.(services.Terminal); ok && terminal.Terminal() {
-			return json.RawMessage(call.Function.Arguments), true
+			return json.RawMessage(call.Function.Arguments), call.Function.Name, true
 		}
 	}
-	return nil, false
+	return nil, "", false
 }
 
 // requiredSubmission returns arguments from a successfully executed required

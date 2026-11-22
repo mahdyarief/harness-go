@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"hsg/internal/harness/guard"
+	"hsg/internal/harness/runlog"
 	"hsg/internal/harness/schema"
 	"hsg/internal/harness/services"
 	"hsg/internal/lib/ai"
@@ -153,6 +154,26 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 			}(j)
 		}
 		wg.Wait()
+		// Record every finished tool in index order so the log is a
+		// deterministic replay of the run; failures are recorded too.
+		for _, j := range group {
+			record := records[j.index]
+			if record.Err != "" {
+				continue
+			}
+			payload, err := json.Marshal(runlog.ToolResult{
+				Name:       record.Name,
+				ResultHash: runlog.HashResult(record.Result),
+				Result:     runlog.Compact(record.Result),
+				Evidence:   record.References,
+			})
+			if err != nil {
+				continue
+			}
+			if err := sink(services.AIEvent{Type: runlog.EventTypeToolResult, Payload: payload}); err != nil {
+				return nil, nil, nil, 0, err
+			}
+		}
 		start = end
 	}
 	return results, records, refs, skipped, nil

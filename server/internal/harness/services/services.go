@@ -104,6 +104,9 @@ type AIEvent struct {
 	ToolCall   string `json:"tool_call,omitempty"`
 	Error      string `json:"error,omitempty"`
 	DurationMs int    `json:"duration_ms,omitempty"`
+	// Payload carries the typed body of audit events (model/call,
+	// tool/result, structured/submit) consumed by the run log adapter.
+	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
 // ToolRecord is the audit row for one invocation. It is produced by the loop so
@@ -217,8 +220,51 @@ type LLM interface {
 	ChatStream(ctx context.Context, messages []ai.Message, opts ai.ChatOptions, onDelta func(ai.StreamDelta) error) (ai.ChatResult, error)
 }
 
-type Sessions interface {
-	Append(turn Outcome) error
+// RunRecord is the row-level metadata of one harness run. ParentRunID is set
+// when a team run dispatches a member, so every run names its producer.
+type RunRecord struct {
+	ID               string
+	TenantID         string
+	ParentRunID      string
+	ProfileName      string
+	ProfileHash      string
+	Model            string
+	ConfigHash       string
+	Status           string
+	PromptTokens     int
+	CompletionTokens int
+	CostUSD          float64
+	StartedAt        time.Time
+	EndedAt          time.Time
+}
+
+// RunLogEvent is one append-only record in a run's event log. Seq is assigned
+// by the store and is contiguous per run.
+type RunLogEvent struct {
+	RunID   string          `json:"run_id"`
+	Seq     int64           `json:"seq"`
+	Member  string          `json:"member,omitempty"`
+	Type    string          `json:"type"`
+	Payload json.RawMessage `json:"payload,omitempty"`
+	At      time.Time       `json:"at"`
+}
+
+// RunCompletion is the terminal state written to a run's row.
+type RunCompletion struct {
+	Status           string
+	PromptTokens     int
+	CompletionTokens int
+	CostUSD          float64
+	EndedAt          time.Time
+}
+
+// RunLog persists run metadata and its append-only event stream. Events()
+// returns a run's events ordered by Seq.
+type RunLog interface {
+	CreateRun(ctx context.Context, run RunRecord) error
+	AppendEvent(ctx context.Context, event RunLogEvent) error
+	FinishRun(ctx context.Context, runID string, completion RunCompletion) error
+	Events(ctx context.Context, runID string) ([]RunLogEvent, error)
 }
 
 type GuardDecision struct {
@@ -270,7 +316,7 @@ var (
 	ToolsKey         = scope.NewKey[Tools]("tools")
 	AgentRegistryKey = scope.NewKey[*agent.Registry]("agentRegistry")
 	LLMKey           = scope.NewKey[LLM]("llm")
-	SessionsKey      = scope.NewKey[Sessions]("sessions")
+	RunLogKey        = scope.NewKey[RunLog]("runLog")
 	SystemPromptKey  = scope.NewKey[string]("systemPrompt")
 	SandboxKey       = scope.NewKey[string]("sandboxPolicy")
 	ApprovalKey      = scope.NewKey[string]("approvalPolicy")
