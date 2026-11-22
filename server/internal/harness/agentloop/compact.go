@@ -94,39 +94,53 @@ func (l *defaultLoop) compactContext(ctx context.Context, history []ai.Message, 
 		emitCompaction(sink, count, 0)
 		return cleared
 	}
+	// Drop phase, after DSH compaction-basic region.ts:118
+	// (selectCompactableRange): a cut may sit at any message that is not a
+	// tool result. Tool results always follow their assistant call, so a
+	// suffix starting anywhere else carries every result it needs. Start at
+	// the user message at or before the KeepLastMessages boundary (whole
+	// turns first), then move forward one safe boundary at a time, cutting
+	// inside a turn when whole turns are not enough.
 	start := keepFrom
 	for start > head && start < len(cleared) && cleared[start].Role != "user" {
 		start--
 	}
+	finish := func(out []ai.Message) []ai.Message {
+		dropped := len(history) - len(out)
+		*compacted += dropped
+		emitCompaction(sink, count, dropped)
+		return out
+	}
 	for {
-		out := append([]ai.Message(nil), cleared[:head]...)
-		if start < len(cleared) {
-			out = append(out, cleared[start:]...)
-		}
-		if ok, _ := core.ToolPairingBalanced(out, len(out)); !ok {
-			if start > head {
-				start--
-				continue
-			}
-		}
-		if estimateTokens(out, specs) <= cap || start <= head {
-			dropped := len(history) - len(out)
-			*compacted += dropped
-			emitCompaction(sink, count, dropped)
-			return out
+		out := keptFrom(cleared, head, start)
+		if estimateTokens(out, specs) <= cap {
+			return finish(out)
 		}
 		next := start + 1
-		for next < len(cleared) && cleared[next].Role != "user" {
+		for next < len(cleared) && cleared[next].Role == "tool" {
 			next++
 		}
 		if next >= len(cleared) {
-			dropped := len(history) - len(out)
-			*compacted += dropped
-			emitCompaction(sink, count, dropped)
-			return out
+			return finish(out)
 		}
 		start = next
 	}
+}
+
+// keptFrom is the head (system prompt) plus history[start:]. When the cut is
+// inside a turn, the user message that opened that turn is kept too, so the
+// model never loses the request it is working on.
+func keptFrom(history []ai.Message, head, start int) []ai.Message {
+	out := append([]ai.Message(nil), history[:head]...)
+	if start < len(history) && history[start].Role != "user" {
+		for u := start - 1; u >= head; u-- {
+			if history[u].Role == "user" {
+				out = append(out, history[u])
+				break
+			}
+		}
+	}
+	return append(out, history[start:]...)
 }
 
 func emitCompaction(sink services.Sink, pruned, dropped int) {
