@@ -5,10 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"hsg/internal/harness/guard"
+	"hsg/internal/harness/schema"
 	"hsg/internal/harness/services"
 	"hsg/internal/lib/ai"
 	"strings"
 	"sync"
+)
+
+const (
+	codeToolArgsInvalid   = "TOOL_ARGS_INVALID"
+	codeToolSchemaInvalid = "TOOL_SCHEMA_INVALID"
 )
 
 func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls []ai.ToolCall, turn int, sink services.Sink, cfg services.LoopConfig, repeat *guard.RepeatTool, reminder *guard.ReminderTool, out *services.Outcome) ([]ai.Message, []services.ToolRecord, []services.Reference, int, error) {
@@ -44,9 +50,17 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 			continue
 		}
 		args := json.RawMessage(call.Function.Arguments)
-		if err := validateArgs(tool.Parameters(), args); err != nil {
-			results[i] = toolError(call, "arguments do not match schema")
-			records[i] = services.ToolRecord{Turn: turn, Name: tool.Name(), Arguments: call.Function.Arguments, Err: "arguments do not match schema"}
+		compiled, err := schema.Compile(tool.Parameters())
+		if err != nil {
+			message := "Skema argumen alat ini tidak valid; laporkan ke operator."
+			results[i] = toolError(call, message)
+			records[i] = services.ToolRecord{Turn: turn, Name: tool.Name(), Arguments: call.Function.Arguments, Result: message, Err: codeToolSchemaInvalid}
+			continue
+		}
+		if violations := compiled.Validate(args); len(violations) > 0 {
+			message := "Argumen alat tidak sesuai skema: " + describeViolations(violations) + ". Perbaiki lalu panggil ulang."
+			results[i] = toolError(call, message)
+			records[i] = services.ToolRecord{Turn: turn, Name: tool.Name(), Arguments: call.Function.Arguments, Result: message, Err: codeToolArgsInvalid}
 			continue
 		}
 		if notice := reminder.Observe(tool.Name(), call.Function.Arguments); notice != nil {
@@ -148,30 +162,12 @@ func toolError(call ai.ToolCall, message string) ai.Message {
 	return ai.Message{Role: "tool", ToolCallID: call.ID, Content: message}
 }
 
-func validateArgs(schema, args json.RawMessage) error {
-	var spec struct {
-		Type       string                     `json:"type"`
-		Properties map[string]json.RawMessage `json:"properties"`
-		Required   []string                   `json:"required"`
+func describeViolations(violations []schema.Violation) string {
+	parts := make([]string, 0, len(violations))
+	for _, v := range violations {
+		parts = append(parts, v.Path+" ("+v.Reason+")")
 	}
-	if err := json.Unmarshal(schema, &spec); err != nil || spec.Type != "object" {
-		return ai.ErrInput
-	}
-	var input map[string]json.RawMessage
-	if err := json.Unmarshal(args, &input); err != nil || input == nil {
-		return ai.ErrInput
-	}
-	for _, key := range spec.Required {
-		if _, ok := input[key]; !ok {
-			return ai.ErrInput
-		}
-	}
-	for key := range input {
-		if _, ok := spec.Properties[key]; !ok {
-			return ai.ErrInput
-		}
-	}
-	return nil
+	return strings.Join(parts, ", ")
 }
 
 func canonicalArgs(raw string) string {

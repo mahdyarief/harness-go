@@ -68,7 +68,11 @@ func Mount(gw *ai.Gateway, registry *agent.Registry, cfg MountConfig) (*scope.Sc
 			return nil, err
 		}
 	}
-	if err := s.Provide(services.ToolsKey, tools.WrapTools(s, tools.Adapt(registry), resolved), nil); err != nil {
+	adapted := tools.Adapt(registry)
+	if err := tools.ValidateSchemas(adapted); err != nil {
+		return nil, err
+	}
+	if err := s.Provide(services.ToolsKey, tools.WrapTools(s, adapted, resolved), nil); err != nil {
 		return nil, err
 	}
 	if err := s.Provide(services.AgentLoopKey, services.AgentLoop(agentloop.New(s)), nil); err != nil {
