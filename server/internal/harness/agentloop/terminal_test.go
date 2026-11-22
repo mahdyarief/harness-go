@@ -75,6 +75,37 @@ func TestStructuredSubmitEndsLoopAndAnswersBatch(t *testing.T) {
 	}
 }
 
+func TestSuccessfulLaterTerminalCallEndsLoop(t *testing.T) {
+	llm := &recordingLLM{script: []ai.ChatResult{{FinishReason: "tool_calls", ToolCalls: []ai.ToolCall{
+		submitCall("submit-invalid", `{"value":3}`),
+		submitCall("submit-valid", `{"value":"valid"}`),
+	}}}}
+	s := mountStructuredLoop(t, llm, services.LoopConfig{}, structured.Submit("submit", "submit result", json.RawMessage(submitSchema)))
+	out, err := agentloop.New(s).Run(context.Background(), services.RunRequest{Messages: userMsg("work")}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Turns != 1 || string(out.Structured) != `{"value":"valid"}` || llm.calls != 1 {
+		t.Fatalf("Turns=%d Structured=%s LLM calls=%d; want later successful terminal result and no extra turn", out.Turns, out.Structured, llm.calls)
+	}
+}
+
+func TestOnlyArgumentErrorsConsumeStructuredRepairs(t *testing.T) {
+	llm := &recordingLLM{script: []ai.ChatResult{
+		{FinishReason: "tool_calls", ToolCalls: []ai.ToolCall{submitCall("submit-1", `{"value":"ok"}`)}},
+		{Content: "complete", FinishReason: "stop"},
+	}}
+	tool := structured.Submit("submit", "submit result", json.RawMessage(`{"type":"object","properties":{},"additionalProperties":false}`))
+	s := mountStructuredLoop(t, llm, services.LoopConfig{RequireStructured: "submit", MaxStructuredRepairs: 1}, tool)
+	out, err := agentloop.New(s).Run(context.Background(), services.RunRequest{Messages: userMsg("work")}, nil)
+	if services.ErrorCode(err) != "STRUCTURED_MISSING" {
+		t.Fatalf("err=%v; want non-argument tool error not to consume repair", err)
+	}
+	if out.Turns != 2 {
+		t.Fatalf("Turns=%d; want one nudge after tool execution failure", out.Turns)
+	}
+}
+
 func TestStructuredInvalidCallIsRepaired(t *testing.T) {
 	llm := &recordingLLM{script: []ai.ChatResult{
 		{FinishReason: "tool_calls", ToolCalls: []ai.ToolCall{submitCall("submit-1", `{"value":3}`)}},

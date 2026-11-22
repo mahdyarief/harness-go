@@ -158,7 +158,6 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		}
 
 		if len(result.ToolCalls) > 0 {
-			terminalName, hasTerminal := terminalCall(tools, result.ToolCalls)
 			toolCallsThisRun += len(result.ToolCalls)
 			messages, records, refs, skipped, err := l.dispatch(ctx, tools, result.ToolCalls, turn, sink, cfg, repeatTool, &reminder, &out)
 			out.References = append(out.References, refs...)
@@ -174,7 +173,7 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 				out.DurationMs = int(l.now().Sub(started).Milliseconds())
 				return out, services.ErrToolBudget
 			}
-			if structuredSubmission, ok := terminalResult(result.ToolCalls, records, terminalName); hasTerminal && ok {
+			if structuredSubmission, ok := terminalResult(tools, result.ToolCalls, records); ok {
 				out.Structured = structuredSubmission
 				out.DurationMs = int(l.now().Sub(started).Milliseconds())
 				return out, nil

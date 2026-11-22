@@ -14,24 +14,18 @@ const (
 
 const structuredNudge = "Finish by calling the required tool with arguments that satisfy its schema."
 
-// terminalCall returns the name of the first terminal tool in the batch.
-func terminalCall(tools services.Tools, calls []ai.ToolCall) (string, bool) {
-	for _, call := range calls {
+// terminalResult returns the arguments of the first terminal tool that ran
+// successfully in the batch. Dispatch validated them against its schema.
+func terminalResult(tools services.Tools, calls []ai.ToolCall, records []services.ToolRecord) (json.RawMessage, bool) {
+	for i, call := range calls {
+		if i >= len(records) || records[i].Err != "" {
+			continue
+		}
 		tool, ok := tools.Lookup(call.Function.Name)
 		if !ok {
 			continue
 		}
-		terminal, ok := tool.(services.Terminal)
-		if ok && terminal.Terminal() {
-			return call.Function.Name, true
-		}
-	}
-	return "", false
-}
-
-func terminalResult(calls []ai.ToolCall, records []services.ToolRecord, name string) (json.RawMessage, bool) {
-	for i, call := range calls {
-		if i < len(records) && call.Function.Name == name && records[i].Err == "" {
+		if terminal, ok := tool.(services.Terminal); ok && terminal.Terminal() {
 			return json.RawMessage(call.Function.Arguments), true
 		}
 	}
@@ -56,10 +50,11 @@ func requiredSubmission(tools services.Tools, calls []ai.ToolCall, records []ser
 }
 
 // requiredInvalid reports whether the batch called the required tool with
-// arguments its schema rejected.
+// arguments its schema rejected. Other failures (unknown tool, budget, denial)
+// are not argument errors and must not consume a repair.
 func requiredInvalid(records []services.ToolRecord, name string) bool {
 	for _, record := range records {
-		if record.Name == name && record.Err != "" {
+		if record.Name == name && record.Err == codeToolArgsInvalid {
 			return true
 		}
 	}
