@@ -98,6 +98,7 @@ type LoopGuard interface {
 
 type AIEvent struct {
 	Type       string `json:"type"`
+	Agent      string `json:"agent,omitempty"`
 	Text       string `json:"text,omitempty"`
 	ToolName   string `json:"tool_name,omitempty"`
 	ToolCall   string `json:"tool_call,omitempty"`
