@@ -52,6 +52,7 @@ func (p *Profile) UnmarshalYAML(node *yaml.Node) error {
 func (p Profile) Hash() string { return Hash(p) }
 
 func parseFrontMatter(text string, dst any) (string, error) {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
 	if !strings.HasPrefix(text, "---\n") {
 		return "", fmt.Errorf("missing YAML front matter")
 	}
