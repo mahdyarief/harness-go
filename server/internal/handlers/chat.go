@@ -829,7 +829,7 @@ func (t *webSearchTool) Description() string {
 }
 func (t *webSearchTool) ReadOnly() bool { return true }
 func (t *webSearchTool) Parameters() json.RawMessage {
-	return json.RawMessage(`{"type":"object","additionalProperties":false,"required":["query"],"properties":{"query":{"type":"string","description":"The search query."},"num_results":{"type":"integer","description":"Number of results, 1-10. Defaults to 5."}}}`)
+	return json.RawMessage(`{"type":"object","additionalProperties":false,"required":["query"],"properties":{"query":{"type":"string"},"num_results":{"type":"integer"}}}`)
 }
 func (t *webSearchTool) Execute(ctx context.Context, args json.RawMessage) (agent.ToolResult, error) {
 	var input struct {

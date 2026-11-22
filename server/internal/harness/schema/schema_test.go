@@ -129,8 +129,27 @@ func TestF5KeywordsPassAndFail(t *testing.T) {
 }
 
 func TestCompileRejectsUnsupportedKeyword(t *testing.T) {
-	_, err := schema.Compile(json.RawMessage(`{"type":"object","properties":{"q":{"type":"string","format":"email"}}}`))
-	if err == nil || !strings.Contains(err.Error(), "SCHEMA_UNSUPPORTED") {
-		t.Fatalf("err=%v; want SCHEMA_UNSUPPORTED", err)
+	for _, keyword := range []string{"format", "description"} {
+		_, err := schema.Compile(json.RawMessage(`{"type":"object","properties":{"q":{"type":"string","` + keyword + `":"value"}}}`))
+		if err == nil || !strings.Contains(err.Error(), "SCHEMA_UNSUPPORTED") {
+			t.Errorf("keyword=%q err=%v; want SCHEMA_UNSUPPORTED", keyword, err)
+		}
+	}
+}
+
+func TestEnumPreservesJSONTypes(t *testing.T) {
+	for _, tc := range []struct {
+		schema string
+		args   string
+		valid  bool
+	}{
+		{`{"type":"object","properties":{"v":{"enum":[1]}}}`, `{"v":"1"}`, false},
+		{`{"type":"object","properties":{"v":{"enum":["true"]}}}`, `{"v":true}`, false},
+		{`{"type":"object","properties":{"v":{"enum":[1]}}}`, `{"v":1.0}`, true},
+	} {
+		got := compile(t, tc.schema).Validate(json.RawMessage(tc.args))
+		if (len(got) == 0) != tc.valid {
+			t.Errorf("schema=%s args=%s violations=%+v; valid=%t", tc.schema, tc.args, got, tc.valid)
+		}
 	}
 }

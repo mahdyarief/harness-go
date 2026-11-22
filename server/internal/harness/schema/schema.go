@@ -21,7 +21,6 @@ var supported = map[string]bool{
 	"properties": true, "additionalProperties": true, "items": true,
 	"minItems": true, "maxItems": true, "minimum": true, "maximum": true,
 	"minLength": true, "maxLength": true, "pattern": true,
-	"title": true, "description": true, "default": true, "examples": true,
 }
 
 type Schema struct {
@@ -266,11 +265,49 @@ func matchesType(types []string, value any) bool {
 
 func enumHas(list []any, value any) bool {
 	for _, item := range list {
-		if fmt.Sprint(item) == fmt.Sprint(value) {
+		if jsonEqual(item, value) {
 			return true
 		}
 	}
 	return false
+}
+
+func jsonEqual(a, b any) bool {
+	switch x := a.(type) {
+	case json.Number:
+		y, ok := b.(json.Number)
+		if !ok {
+			return false
+		}
+		xf, errX := x.Float64()
+		yf, errY := y.Float64()
+		return errX == nil && errY == nil && xf == yf
+	case map[string]any:
+		y, ok := b.(map[string]any)
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for key, value := range x {
+			other, ok := y[key]
+			if !ok || !jsonEqual(value, other) {
+				return false
+			}
+		}
+		return true
+	case []any:
+		y, ok := b.([]any)
+		if !ok || len(x) != len(y) {
+			return false
+		}
+		for i, value := range x {
+			if !jsonEqual(value, y[i]) {
+				return false
+			}
+		}
+		return true
+	default:
+		return reflect.TypeOf(a) == reflect.TypeOf(b) && a == b
+	}
 }
 
 func constEquals(raw json.RawMessage, value any) bool {
