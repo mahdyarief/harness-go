@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
+	"hsg/internal/harness/evidence"
 	"hsg/internal/harness/scope"
 	"hsg/internal/lib/agent"
 	"hsg/internal/lib/ai"
@@ -134,6 +136,10 @@ type Outcome struct {
 	// Structured is the validated argument JSON of the terminal tool call
 	// that ended the run, when one was made.
 	Structured json.RawMessage
+	// Evidence is every typed provenance record produced by the run's tools,
+	// ordered by first appearance. Structured citations are grounded against
+	// it before the run ends.
+	Evidence []evidence.Item
 }
 
 // LoopConfig bounds one loop run. Zero values are normalized by the loop so a
@@ -162,6 +168,14 @@ type LoopConfig struct {
 	// legacy behaviour of ending on a text answer.
 	RequireStructured    string
 	MaxStructuredRepairs int
+	// EvidenceRegistry lists the evidence kinds tools may produce. When set,
+	// a structured submission citing a ref no tool returned is rejected with
+	// EVIDENCE_UNGROUNDED and fed back as a repair.
+	EvidenceRegistry *evidence.Registry
+	// EvidencePath is the dotted path inside the structured submission that
+	// holds the citations, e.g. "evidence" or "result.evidence". Empty
+	// searches the whole submission.
+	EvidencePath string
 }
 
 type ResultSpec struct {
@@ -191,8 +205,37 @@ type Reference struct {
 }
 
 type ToolResult struct {
-	Output     string
+	Output string
+	// References is the KB passage provenance of the output. It is mapped to
+	// DOCUMENT evidence items; new tools should prefer Evidence directly.
 	References []Reference
+	// Evidence carries typed provenance for every claim the output grounds:
+	// documents, rules, graph edges, service records. The loop collects it
+	// into Outcome.Evidence and grounds structured citations against it.
+	Evidence []evidence.Item
+}
+
+// DocumentItem maps a KB Reference to a DOCUMENT evidence item: the chunk id
+// (or document id when no chunk) is the Ref, all other fields survive in Meta
+// so no data is lost.
+func DocumentItem(ref Reference) evidence.Item {
+	meta := map[string]string{
+		"document_id":  ref.DocumentID,
+		"title":        ref.Title,
+		"filename":     ref.Filename,
+		"format":       ref.Format,
+		"locator":      ref.Locator,
+		"heading_path": ref.HeadingPath,
+		"position":     strconv.Itoa(ref.Position),
+	}
+	if ref.Source != "" {
+		meta["source"] = ref.Source
+	}
+	chunk := ref.ChunkID
+	if chunk == "" {
+		chunk = ref.DocumentID
+	}
+	return evidence.Item{Kind: "DOCUMENT", Ref: chunk, Excerpt: ref.Excerpt, Meta: meta}
 }
 
 type Tool interface {

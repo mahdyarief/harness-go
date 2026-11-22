@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"hsg/internal/harness/evidence"
 	"hsg/internal/harness/guard"
 	hsgllm "hsg/internal/harness/llm"
 	"hsg/internal/harness/runlog"
@@ -183,12 +184,38 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 				return out, services.ErrToolBudget
 			}
 			if structuredSubmission, name, ok := terminalResult(tools, result.ToolCalls, records); ok {
+				if err := checkEvidence(structuredSubmission, cfg, out.Evidence); err != nil {
+					structuredRepairs++
+					structuredNudged = true
+					if structuredRepairs > cfg.MaxStructuredRepairs {
+						out.Structured = structuredSubmission
+						out.Partial = true
+						out.DurationMs = int(l.now().Sub(started).Milliseconds())
+						return out, services.NewHarnessError(err.Error(), "EVIDENCE_UNGROUNDED", err)
+					}
+					_ = sink(services.AIEvent{Type: "notice", Text: err.Error()})
+					history = append(history, ai.Message{Role: "user", Content: err.Error()})
+					continue
+				}
 				out.Structured = structuredSubmission
 				emitStructured(sink, name, structuredSubmission)
 				out.DurationMs = int(l.now().Sub(started).Milliseconds())
 				return out, nil
 			}
 			if submission, ok := requiredSubmission(tools, result.ToolCalls, records, cfg.RequireStructured); ok {
+				if err := checkEvidence(submission, cfg, out.Evidence); err != nil {
+					structuredRepairs++
+					structuredNudged = true
+					if structuredRepairs > cfg.MaxStructuredRepairs {
+						out.Structured = submission
+						out.Partial = true
+						out.DurationMs = int(l.now().Sub(started).Milliseconds())
+						return out, services.NewHarnessError(err.Error(), "EVIDENCE_UNGROUNDED", err)
+					}
+					_ = sink(services.AIEvent{Type: "notice", Text: err.Error()})
+					history = append(history, ai.Message{Role: "user", Content: err.Error()})
+					continue
+				}
 				out.Structured = submission
 				emitStructured(sink, cfg.RequireStructured, submission)
 				out.DurationMs = int(l.now().Sub(started).Milliseconds())
@@ -275,6 +302,15 @@ func toolSpecs(tools services.Tools) []ai.ToolSpec {
 		return nil
 	}
 	return tools.Specs()
+}
+
+// checkEvidence grounds a structured submission against the run's collected
+// evidence. Without a registry the check is off: legacy behaviour.
+func checkEvidence(submission json.RawMessage, cfg services.LoopConfig, seen []evidence.Item) error {
+	if cfg.EvidenceRegistry == nil {
+		return nil
+	}
+	return evidence.Check(submission, cfg.EvidencePath, cfg.EvidenceRegistry, seen)
 }
 
 // modelCallPayload builds the model/call audit body. Prompt text is logged

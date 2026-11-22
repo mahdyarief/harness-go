@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
+
+	"hsg/internal/harness/evidence"
 	"hsg/internal/harness/guard"
 	"hsg/internal/harness/runlog"
 	"hsg/internal/harness/schema"
@@ -150,6 +153,7 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 				mu.Lock()
 				records[j.index] = record
 				refs = append(refs, res.References...)
+				out.Evidence = append(out.Evidence, res.Evidence...)
 				mu.Unlock()
 			}(j)
 		}
@@ -177,6 +181,31 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 		start = end
 	}
 	return results, records, refs, skipped, nil
+}
+
+// normalizeEvidence dedupes and orders the run's evidence so a parallel tool
+// group produces the same Outcome.Evidence regardless of scheduling.
+func normalizeEvidence(items []evidence.Item) []evidence.Item {
+	if len(items) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(items))
+	out := make([]evidence.Item, 0, len(items))
+	for _, item := range items {
+		k := item.Kind + "\x00" + item.Ref
+		if seen[k] {
+			continue
+		}
+		seen[k] = true
+		out = append(out, item)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Kind != out[j].Kind {
+			return out[i].Kind < out[j].Kind
+		}
+		return out[i].Ref < out[j].Ref
+	})
+	return out
 }
 
 func toolError(call ai.ToolCall, message string) ai.Message {

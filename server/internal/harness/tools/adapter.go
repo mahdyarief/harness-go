@@ -46,7 +46,7 @@ func (t *adaptedTool) Execute(ctx context.Context, args json.RawMessage) (servic
 	}
 	out := services.ToolResult{Output: res.Output}
 	for _, ref := range res.References {
-		out.References = append(out.References, services.Reference{
+		svcRef := services.Reference{
 			DocumentID:  ref.DocumentID.String(),
 			ChunkID:     ref.ChunkID.String(),
 			Title:       ref.Title,
@@ -57,7 +57,10 @@ func (t *adaptedTool) Execute(ctx context.Context, args json.RawMessage) (servic
 			Position:    ref.Position,
 			Excerpt:     ref.Excerpt,
 			Source:      ref.Source,
-		})
+		}
+		out.References = append(out.References, svcRef)
+		// Every KB passage is DOCUMENT evidence with no data lost.
+		out.Evidence = append(out.Evidence, services.DocumentItem(svcRef))
 	}
 	return out, nil
 }
