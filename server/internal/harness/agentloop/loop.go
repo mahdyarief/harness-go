@@ -72,6 +72,8 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 	partialContinuations := 0
 	toolCallsThisRun := 0
 	overflowRetries := 0
+	structuredRepairs := 0
+	structuredNudged := false
 	var carried strings.Builder
 	// baseline is the last call's provider-reported usage; counted is the
 	// history length it covers (through the assistant reply). Any compaction
@@ -156,6 +158,7 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		}
 
 		if len(result.ToolCalls) > 0 {
+			terminalName, hasTerminal := terminalCall(tools, result.ToolCalls)
 			toolCallsThisRun += len(result.ToolCalls)
 			messages, records, refs, skipped, err := l.dispatch(ctx, tools, result.ToolCalls, turn, sink, cfg, repeatTool, &reminder, &out)
 			out.References = append(out.References, refs...)
@@ -170,6 +173,25 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 				out.Partial = true
 				out.DurationMs = int(l.now().Sub(started).Milliseconds())
 				return out, services.ErrToolBudget
+			}
+			if structuredSubmission, ok := terminalResult(result.ToolCalls, records, terminalName); hasTerminal && ok {
+				out.Structured = structuredSubmission
+				out.DurationMs = int(l.now().Sub(started).Milliseconds())
+				return out, nil
+			}
+			if submission, ok := requiredSubmission(tools, result.ToolCalls, records, cfg.RequireStructured); ok {
+				out.Structured = submission
+				out.DurationMs = int(l.now().Sub(started).Milliseconds())
+				return out, nil
+			}
+			if cfg.RequireStructured != "" && requiredInvalid(records, cfg.RequireStructured) {
+				structuredRepairs++
+				structuredNudged = true
+				if structuredRepairs > cfg.MaxStructuredRepairs {
+					out.Partial = true
+					out.DurationMs = int(l.now().Sub(started).Milliseconds())
+					return out, structuredInvalid()
+				}
 			}
 			for i, g := range cfg.LoopGuards {
 				if g == nil {
@@ -194,6 +216,20 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 			continue
 		}
 
+		if cfg.RequireStructured != "" {
+			if !structuredNudged && turn+1 >= cfg.MaxTurns {
+				out.DurationMs = int(l.now().Sub(started).Milliseconds())
+				return out, structuredMissing()
+			}
+			if !structuredNudged {
+				structuredNudged = true
+				_ = sink(services.AIEvent{Type: "notice", Text: structuredNudge})
+				history = append(history, ai.Message{Role: "user", Content: structuredNudge})
+				continue
+			}
+			out.DurationMs = int(l.now().Sub(started).Milliseconds())
+			return out, structuredMissing()
+		}
 		if toolCallsThisRun > 0 && nudges < cfg.MaxContinuationNudges &&
 			shouldContinue(result.Content, nudges > 0) {
 			if nudges == 0 {
@@ -211,6 +247,13 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 		return out, nil
 	}
 
+	if cfg.RequireStructured != "" {
+		out.DurationMs = int(l.now().Sub(started).Milliseconds())
+		if structuredRepairs > 0 {
+			return out, structuredInvalid()
+		}
+		return out, structuredMissing()
+	}
 	_ = sink(services.AIEvent{Type: "budget", Error: services.ErrTurnBudget.Error()})
 	out.Partial = true
 	out.DurationMs = int(l.now().Sub(started).Milliseconds())

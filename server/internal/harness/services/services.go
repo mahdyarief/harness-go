@@ -126,6 +126,9 @@ type Outcome struct {
 	References       []Reference
 	DurationMs       int
 	Partial          bool
+	// Structured is the validated argument JSON of the terminal tool call
+	// that ended the run, when one was made.
+	Structured json.RawMessage
 }
 
 // LoopConfig bounds one loop run. Zero values are normalized by the loop so a
@@ -150,6 +153,10 @@ type LoopConfig struct {
 	ReminderInclude         []string
 	ReminderExclude         []string
 	LoopGuards              []LoopGuard
+	// RequireStructured names the tool the model must submit. Empty keeps the
+	// legacy behaviour of ending on a text answer.
+	RequireStructured    string
+	MaxStructuredRepairs int
 }
 
 type Agent interface {
@@ -189,6 +196,13 @@ type Tool interface {
 type Tools interface {
 	Lookup(name string) (Tool, bool)
 	Specs() []ai.ToolSpec
+}
+
+// Terminal is an optional marker for a tool whose successful call ends the
+// run without another model turn. Its validated arguments become
+// Outcome.Structured.
+type Terminal interface {
+	Terminal() bool
 }
 
 type LLM interface {

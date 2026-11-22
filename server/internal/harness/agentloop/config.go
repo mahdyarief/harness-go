@@ -43,6 +43,7 @@ func ResolveLoopConfig(c services.LoopConfig) (services.LoopConfig, error) {
 	c.MaxRetries = checkInt("MaxRetries", c.MaxRetries, 1, 0, 3)
 	c.MaxContinuationNudges = checkInt("MaxContinuationNudges", c.MaxContinuationNudges, 8, 0, 20)
 	c.MaxPartialContinuations = checkInt("MaxPartialContinuations", c.MaxPartialContinuations, 2, 1, 8)
+	c.MaxStructuredRepairs = checkInt("MaxStructuredRepairs", c.MaxStructuredRepairs, 2, 1, 8)
 
 	if len(c.ReminderThresholds) == 0 {
 		c.ReminderThresholds = []int{3, 5, 8}
