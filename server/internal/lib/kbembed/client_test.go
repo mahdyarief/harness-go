@@ -10,6 +10,8 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"strings"
+
+	"hsg/internal/lib/egress"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -142,15 +144,15 @@ func TestAddressPolicyAndPinning(t *testing.T) {
 		{"192.0.2.1", true, false, false}, {"::ffff:127.0.0.1", true, false, false},
 		{"::", true, false, false}, {"ff02::1", true, false, false},
 	} {
-		if got := validAddresses([]netip.Addr{netip.MustParseAddr(tc.ip)}, tc.private, tc.plain); got != tc.ok {
+		if got := egress.ValidAddresses([]netip.Addr{netip.MustParseAddr(tc.ip)}, tc.private, tc.plain); got != tc.ok {
 			t.Errorf("%s: %v", tc.ip, got)
 		}
 	}
-	if validAddresses([]netip.Addr{netip.MustParseAddr("8.8.8.8"), netip.MustParseAddr("127.0.0.1")}, false, false) {
+	if egress.ValidAddresses([]netip.Addr{netip.MustParseAddr("8.8.8.8"), netip.MustParseAddr("127.0.0.1")}, false, false) {
 		t.Fatal("mixed DNS accepted")
 	}
 	ips := []netip.Addr{netip.MustParseAddr("10.0.0.1")}
-	_, err := dialPinned(context.Background(), "tcp", "8080", ips, func(_ context.Context, _, address string) (net.Conn, error) {
+	_, err := egress.DialPinned(context.Background(), "tcp", "8080", ips, func(_ context.Context, _, address string) (net.Conn, error) {
 		if address != "10.0.0.1:8080" {
 			t.Fatal("unpinned dial")
 		}
