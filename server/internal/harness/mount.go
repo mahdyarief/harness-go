@@ -39,6 +39,9 @@ func Mount(gw *ai.Gateway, registry *agent.Registry, cfg MountConfig) (*scope.Sc
 	if err := s.Provide(services.LoopConfigKey, resolved, nil); err != nil {
 		return nil, err
 	}
+	if err := s.Provide(services.AgentRegistryKey, registry, nil); err != nil {
+		return nil, err
+	}
 	presetName := cfg.Preset
 	if presetName == "" {
 		presetName = "read-only"

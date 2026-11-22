@@ -64,6 +64,10 @@ func (g *guardedTool) Name() string                { return g.next.Name() }
 func (g *guardedTool) Description() string         { return g.next.Description() }
 func (g *guardedTool) Parameters() json.RawMessage { return g.next.Parameters() }
 func (g *guardedTool) ReadOnly() bool              { return g.next.ReadOnly() }
+func (g *guardedTool) Terminal() bool {
+	terminal, ok := g.next.(services.Terminal)
+	return ok && terminal.Terminal()
+}
 
 // pre runs the ordered checks of DSH core/tools/src/pipeline.ts:191 (prepare):
 // preset allow-list, sandbox, approval of any escalation the sandbox asked

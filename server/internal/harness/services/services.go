@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"hsg/internal/harness/scope"
+	"hsg/internal/lib/agent"
 	"hsg/internal/lib/ai"
 )
 
@@ -159,6 +160,11 @@ type LoopConfig struct {
 	MaxStructuredRepairs int
 }
 
+type ResultSpec struct {
+	Name   string
+	Schema json.RawMessage
+}
+
 type Agent interface {
 	Run(ctx context.Context, req RunRequest, sink Sink) (Outcome, error)
 }
@@ -261,6 +267,7 @@ var (
 	AgentLoopKey     = scope.NewKey[AgentLoop]("agentLoop")
 	LoopConfigKey    = scope.NewKey[LoopConfig]("loopConfig")
 	ToolsKey         = scope.NewKey[Tools]("tools")
+	AgentRegistryKey = scope.NewKey[*agent.Registry]("agentRegistry")
 	LLMKey           = scope.NewKey[LLM]("llm")
 	SessionsKey      = scope.NewKey[Sessions]("sessions")
 	SystemPromptKey  = scope.NewKey[string]("systemPrompt")

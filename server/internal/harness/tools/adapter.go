@@ -34,6 +34,10 @@ func (t *adaptedTool) Name() string                { return t.tool.Name() }
 func (t *adaptedTool) Description() string         { return t.tool.Description() }
 func (t *adaptedTool) Parameters() json.RawMessage { return t.tool.Parameters() }
 func (t *adaptedTool) ReadOnly() bool              { return t.tool.ReadOnly() }
+func (t *adaptedTool) Terminal() bool {
+	terminal, ok := t.tool.(interface{ Terminal() bool })
+	return ok && terminal.Terminal()
+}
 
 func (t *adaptedTool) Execute(ctx context.Context, args json.RawMessage) (services.ToolResult, error) {
 	res, err := t.tool.Execute(ctx, args)
