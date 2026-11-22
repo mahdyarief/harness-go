@@ -95,6 +95,9 @@ func TestStrictPresetAsksTheApprovalAnswerer(t *testing.T) {
 		{"approved", func(context.Context, services.ToolInvocation) (bool, error) { return true, nil }, "", true},
 		{"rejected", func(context.Context, services.ToolInvocation) (bool, error) { return false, nil }, tools.CodeApprovalRejected, false},
 		{"no answerer", nil, tools.CodeApprovalUnavailable, false},
+		{"timed out", func(context.Context, services.ToolInvocation) (bool, error) {
+			return false, context.DeadlineExceeded
+		}, tools.CodeApprovalUnavailable, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

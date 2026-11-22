@@ -29,6 +29,7 @@ const (
 	EventTypeToolResult     = "tool/result"
 	EventTypeStructured     = "structured/submit"
 	EventTypeReduceDecision = "reduce/decision"
+	EventTypeReviewDecided  = "review/decided"
 )
 
 // ModelCall is the payload of a model/call event. The request hash is a stable
@@ -71,6 +72,17 @@ type StructuredSubmit struct {
 type ReduceDecision struct {
 	Rule    string `json:"rule"`
 	Matched bool   `json:"matched"`
+}
+
+// ReviewDecided is the payload of a review/decided event. Result is a
+// compact preview; the durable decision lives in review_decisions.
+type ReviewDecided struct {
+	ItemID   string `json:"item_id"`
+	Subject  string `json:"subject"`
+	Reviewer string `json:"reviewer"`
+	Role     string `json:"role"`
+	Reason   string `json:"reason,omitempty"`
+	Result   string `json:"result,omitempty"`
 }
 
 // LogPrompts controls whether model/call events embed prompt text.
@@ -218,6 +230,12 @@ func StructuredEvent(runID, member, tool string, args json.RawMessage) services.
 func ReduceDecisionEvent(runID, member string, decision ReduceDecision) services.RunLogEvent {
 	payload, _ := json.Marshal(decision)
 	return services.RunLogEvent{RunID: runID, Member: member, Type: EventTypeReduceDecision, Payload: payload}
+}
+
+// ReviewDecidedEvent writes a review/decided row for one inbox decision.
+func ReviewDecidedEvent(runID, member string, event ReviewDecided) services.RunLogEvent {
+	payload, _ := json.Marshal(event)
+	return services.RunLogEvent{RunID: runID, Member: member, Type: EventTypeReviewDecided, Payload: payload}
 }
 
 // HashRequest returns a stable hex digest of a request body, safe by default.

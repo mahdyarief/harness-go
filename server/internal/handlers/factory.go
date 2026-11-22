@@ -12,6 +12,11 @@ type Handlers struct {
 	Chat     *chatHandler
 	Token    *tokenHandler
 	Audit    *auditHandler
+	Review   *reviewHandler
+}
+
+func NewReviewHandler(app *app.Application) *reviewHandler {
+	return newReviewHandler(app)
 }
 
 func New(app *app.Application) *Handlers {
@@ -25,5 +30,6 @@ func New(app *app.Application) *Handlers {
 		Chat:     &chatHandler{app: app},
 		Token:    newTokenHandler(app),
 		Audit:    newAuditHandler(app),
+		Review:   newReviewHandler(app),
 	}
 }

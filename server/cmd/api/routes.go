@@ -41,6 +41,7 @@ func routes(r *fiber.App, app *app.Application, knowledge *handlers.KnowledgeHan
 	registerChatRoutes(v1, app)
 	registerTokenRoutes(v1, app)
 	registerAuditRoutes(v1, app)
+	registerReviewRoutes(v1, app)
 	registerKnowledgeEmbeddingConfigRoutes(v1, app, newKnowledgeEmbeddingProbe(app))
 	registerKnowledgeRoutes(v1, app, knowledge)
 	registerKnowledgeEmbeddingStatusRoutes(v1, app)

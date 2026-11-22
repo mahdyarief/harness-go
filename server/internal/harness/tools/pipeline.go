@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"hsg/internal/harness/guard"
@@ -100,7 +101,8 @@ func (g *guardedTool) sandbox(call services.ToolInvocation) services.PreDecision
 }
 
 // approve resolves an ask. "never" means no escalation is possible; "ask"
-// consults the scope's answerer and fails closed without one.
+// consults the scope's answerer and fails closed without one. A timeout (an
+// unanswered ask) is unavailable, not rejected: the inbox item stays open.
 func (g *guardedTool) approve(ctx context.Context, call services.ToolInvocation, ask services.PreDecision) services.PreDecision {
 	policy, _ := scope.Require(g.scope, services.ApprovalKey)
 	if policy != "ask" {
@@ -111,7 +113,13 @@ func (g *guardedTool) approve(ctx context.Context, call services.ToolInvocation,
 		return services.PreDeny("alat "+call.Name+" memerlukan persetujuan tetapi tidak ada penjawab", CodeApprovalUnavailable)
 	}
 	approved, err := answer(ctx, call)
-	if err != nil || !approved {
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return services.PreDeny("alat "+call.Name+" menunggu persetujuan tetapi waktu habis", CodeApprovalUnavailable)
+		}
+		return services.PreDeny("alat "+call.Name+" ditolak oleh pengguna", CodeApprovalRejected)
+	}
+	if !approved {
 		return services.PreDeny("alat "+call.Name+" ditolak oleh pengguna", CodeApprovalRejected)
 	}
 	return services.PreAllow()
