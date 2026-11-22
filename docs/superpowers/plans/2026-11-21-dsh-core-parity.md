@@ -10,6 +10,31 @@
 
 ---
 
+## Execution status
+
+**Status: DONE.** Phase A and Phase B landed on `main`. Phase C stays deferred; its items were moved into `2026-11-22-harness-foundation-capabilities.md`.
+
+| Task | Commit | Note |
+|---|---|---|
+| 0 Split `loop.go` | `06b34cb` | |
+| 1 Answer every tool call (G1) | `60a44d4` | |
+| 2 Duration and token budgets (G2, G3) | `718686d` | Corrected in `3b2c1e3`: only completion tokens are budgeted |
+| 3 Bounded tool concurrency (G4) | `390b9b5` | Hard deadline per tool added in `140b46f` |
+| 4 Continuation policy and stream resume (G5, G6) | `72b440d` | Resume made reachable in production in `27761f6` |
+| 5 Loop guards (G7) | `2575deb` | Current-turn records only: `844dfe8`. Not yet wired in `handlers/chat.go` |
+| 6 Ordered pre-execute pipeline (G9) | `87a84ee` | Aligned with DSH prepare/dispatch and approval codes in `1610263` |
+| 7 Failure codes and classification | `133d001` | Local rejections no longer retried: `06d191c`; DSH regexes verbatim: `dcccd37` |
+| 8 DSH retry policy (G8) | `a2642ad` | `EMPTY_RESPONSE` produced and retried in `7b33c4c` |
+| 9 Head+tail retention and pruning (G10, G11) | `3d527df` | Drop step fixed in `e7e45c6`; byte bounds and pruner defaults in `1ee8732`; cuts inside a turn in `b3cefba` |
+| 10 Context-overflow recovery | `2f7dc9a` | Order kept on overflow: `e7e45c6` |
+| 11 Token estimator parity | `56bf337`, `fb68d2a` | Provider usage now triggers compaction: `c36ef9b` |
+
+**Post-execution review fixes** (not in the original task list):
+- `be8d899` Runner keeps the outcome on error, so billing and persistence are not lost.
+- `545ff00` Turn budget exhaustion is reported (`TURN_BUDGET_EXHAUSTED`) instead of ending silently.
+- `d983a97` Unused harness API removed (`GuardsKey`, `SpecFor`, `llm.Do`, HTTP-code re-exports).
+- Learnings: `0a31bf7`, `26f1b41` (`.trail/learnings/`).
+
 ## Why this revision
 
 ### Evaluation of the previous plans
@@ -72,9 +97,9 @@
 
 **Files:** create `agentloop/dispatch.go` (dispatch, toolError, validateArgs, canonicalArgs), `agentloop/compact.go` (compact, estimateTokens), `agentloop/truncate.go` (truncate), and `agentloop/continuation.go` (shouldContinue, continuationPrompt). `loop.go` keeps `Run`, `call` and `accumulate`.
 
-- [ ] Move the code verbatim; there is no logic change.
-- [ ] `cd server && go test ./internal/harness/... ./internal/handlers/...` → PASS (unchanged count).
-- [ ] Commit `refactor(harness): split agent loop into focused files`.
+- [x] Move the code verbatim; there is no logic change.
+- [x] `cd server && go test ./internal/harness/... ./internal/handlers/...` → PASS (unchanged count).
+- [x] Commit `refactor(harness): split agent loop into focused files`.
 
 ### Task 1: Close every tool call; stop on tool budget (G1)
 
@@ -85,7 +110,7 @@
 - `const CodeToolNotStarted = "TOOL_NOT_STARTED"` in `services`.
 - `services.ErrToolBudget` (a `HarnessError` with code `TOOL_BUDGET_EXHAUSTED`).
 
-- [ ] **Step 1: Failing test.** Use `MaxToolCalls: 2` and an LLM that asks for 3 calls on turn 1.
+- [x] **Step 1: Failing test.** Use `MaxToolCalls: 2` and an LLM that asks for 3 calls on turn 1.
   - Every `ToolCall.ID` in the assistant message has exactly one `role:"tool"` message. The third message's content is the not-started text.
   - The loop then returns `services.ErrorCode(err) == "TOOL_BUDGET_EXHAUSTED"` and `out.Partial == true`.
   - The sink receives `{Type:"budget", Error:"tool budget exhausted"}`.
@@ -112,40 +137,40 @@ func TestDispatchAnswersEveryCallAndStopsOnToolBudget(t *testing.T) {
 ```
 
   Put the shared helpers (`recordingLLM`, `mountLoop`, `call`, `userMsg`, `assertEveryCallAnswered`, `assertHasEvent`) in `agentloop/helpers_test.go`. `recordingLLM` stores a copy of the history it receives.
-- [ ] **Step 2:** run it and watch it fail (the model is called again with dangling ids).
-- [ ] **Step 3: Implement.**
+- [x] **Step 2:** run it and watch it fail (the model is called again with dangling ids).
+- [x] **Step 3: Implement.**
   - In `dispatch`, calls past the budget get `toolError(call, notStartedText)` plus a `ToolRecord{Err: CodeToolNotStarted}`. Never slice `calls`.
   - `notStartedText` = "Panggilan alat tidak dijalankan karena batas jumlah panggilan alat tercapai. Selesaikan jawaban dengan informasi yang ada." (This adapts DSH `repair.ts:39`.)
   - After `dispatch`, if `out.ToolCalls >= cfg.MaxToolCalls` and any call was skipped: emit `budget`, return `ErrToolBudget`.
-- [ ] **Step 4:** PASS. Also add `assertEveryCallAnswered` to the existing deny, timeout and unknown-tool tests.
-- [ ] **Step 5:** commit `fix(harness): answer every tool call and stop on tool budget`.
+- [x] **Step 4:** PASS. Also add `assertEveryCallAnswered` to the existing deny, timeout and unknown-tool tests.
+- [x] **Step 5:** commit `fix(harness): answer every tool call and stop on tool budget`.
 
 ### Task 2: Enforce duration and token budgets (G2, G3)
 
 **Files:** `agentloop/loop.go`, test `agentloop/budget_test.go`.
 
-- [ ] **Failing tests:**
+- [x] **Failing tests:**
   1. `MaxDuration: 50ms` with an LLM that blocks until ctx is done → returns within ~100 ms with `errors.Is(err, context.DeadlineExceeded)` and `Partial`.
   2. `MaxTotalTokens: 10` with an LLM that reports `CompletionTokens: 11` on a tool turn → `budget` event, code `TOKEN_BUDGET_EXHAUSTED`, and no second model call.
   3. The LLM receives `opts.MaxTokens == MaxTotalTokens - completionSoFar` on each call.
   4. `FinishReason: "length"` → `out.Partial = true`, and the next tool turn does not clear it (sticky, `agent.ts:374-379`).
-- [ ] **Implement:**
+- [x] **Implement:**
   - `ctx, cancel := context.WithTimeout(ctx, cfg.MaxDuration)` at the top of `Run`.
   - Keep `outerCtx` for the client-abort check (see the legacy comment at `runner.go:219`).
   - Compute `remaining` before each call, and bail with the legacy message strings.
-- [ ] Commit `fix(harness): enforce duration and token budgets`.
+- [x] Commit `fix(harness): enforce duration and token budgets`.
 
 ### Task 3: Bounded, ordered tool concurrency (G4)
 
 **Files:** `agentloop/dispatch.go`, test `agentloop/concurrency_test.go`.
 **DSH:** `core/tools/src/batch.ts:186-199`. Consecutive concurrency-safe calls share a pool and the others act as barriers. Here `ReadOnly()` is the concurrency-safe flag.
 
-- [ ] **Failing test:** use `MaxToolConcurrency: 2` and 5 read-only calls whose tool tracks peak in-flight with an atomic counter, then assert peak ≤ 2. Add one non-read-only tool in the middle and assert it ran alone (peak 1 during it). Assert that tool messages come out in model order.
-- [ ] **Implement:**
+- [x] **Failing test:** use `MaxToolConcurrency: 2` and 5 read-only calls whose tool tracks peak in-flight with an atomic counter, then assert peak ≤ 2. Add one non-read-only tool in the middle and assert it ran alone (peak 1 during it). Assert that tool messages come out in model order.
+- [x] **Implement:**
   - Group `jobs` into runs: consecutive `ReadOnly()` jobs form one group, and each non-read-only job is a group of its own.
   - Each group runs with a semaphore `make(chan struct{}, cfg.MaxToolConcurrency)`, and the next group waits for it.
   - Results are already written by index, so order is preserved.
-- [ ] Commit `fix(harness): bound tool concurrency and serialize write tools`.
+- [x] Commit `fix(harness): bound tool concurrency and serialize write tools`.
 
 ### Task 4: Port continuation policy and partial-stream resume (G5, G6)
 
@@ -154,12 +179,12 @@ func TestDispatchAnswersEveryCallAndStopsOnToolBudget(t *testing.T) {
 - `agentloop/loop.go`.
 - tests `agentloop/continuation_test.go` (copy `lib/agent/completion_test.go`) and `agentloop/resume_test.go`.
 
-- [ ] **Failing tests:**
+- [x] **Failing tests:**
   1. A turn with no tools that answers "Saya akan jelaskan: …" is **not** nudged. This changes the current `TestAntiStallContinuationRunsAnotherTurn`: rewrite that test so tools run first.
   2. After tools, with `MaxContinuationNudges: 1` and a model that stalls twice → exactly one nudge, then return. The first nudge emits a `notice` with the legacy text.
   3. A stream returns `Content:"setengah"` plus a `*ai.ProviderError` → loop appends assistant + "Lanjutkan jawaban dari titik terakhir…", emits `notice`, and the final `out.Content == "setengah" + rest`. With `MaxPartialContinuations: 1` and two cuts → `Partial` with the carried text.
-- [ ] **Implement:** mirror `runner.go:212-276`, using separate counters `nudges` and `partialContinuations`. Use the legacy nudge prompt text, not the current `continuationPrompt`.
-- [ ] Commit `fix(harness): restore continuation policy and stream resume`.
+- [x] **Implement:** mirror `runner.go:212-276`, using separate counters `nudges` and `partialContinuations`. Use the legacy nudge prompt text, not the current `continuationPrompt`.
+- [x] Commit `fix(harness): restore continuation policy and stream resume`.
 
 ### Task 5: Loop guards (G7)
 
@@ -167,13 +192,13 @@ func TestDispatchAnswersEveryCallAndStopsOnToolBudget(t *testing.T) {
 
 > Check for an import cycle: `services` must not import `guard`. Instead put the `LoopGuard` interface and `Verdict` in `services`, and keep the implementations in `guard`.
 
-- [ ] **Failing loop test:** the same tool returns the same error 3 times → the run ends gracefully, `out.Content == verdict.Reason`, `err == nil`.
-- [ ] **Implement:**
+- [x] **Failing loop test:** the same tool returns the same error 3 times → the run ends gracefully, `out.Content == verdict.Reason`, `err == nil`.
+- [x] **Implement:**
   - Memory is per run.
   - Inspect after each tool turn.
   - The legacy handler never passed `LoopGuards`: `git log -S LoopGuards` shows only `a128621`, and production never wired it. So G7 is a lost *capability*, not a production regression.
   - `Mount` exposes `MountConfig.LoopGuards`, defaulting to empty. Enabling `RepeatedErrorGuard` in `chat.go` is a separate, explicit commit.
-- [ ] Commit `feat(harness): restore loop guards`.
+- [x] Commit `feat(harness): restore loop guards`.
 
 ### Task 6: Wire one ordered pre-execute pipeline (G9)
 
@@ -185,16 +210,16 @@ func TestDispatchAnswersEveryCallAndStopsOnToolBudget(t *testing.T) {
 - `type PreExecute func(ctx context.Context, call ToolInvocation, next func() PreDecision) PreDecision`, registered on `scope` as a waterfall with an explicit `next`.
 - `Pipeline` order: preset allow-list → sandbox (`!ReadOnly()` and mode `read-only` gives deny `SANDBOX_READ_ONLY`) → `ask` resolution via approval (`never` gives `APPROVAL_REJECTED`; `ask` with no answerer gives `APPROVAL_UNAVAILABLE`) → user `tool.before` listeners → timeout → `Execute` → result retention (Task 9) → `tool.after`.
 
-- [ ] **Failing tests:**
+- [x] **Failing tests:**
   - Read-only tool under the `strict` preset runs.
   - Write tool under `read-only` is denied with the code and Indonesian reason as tool-result text.
   - A tool outside the allow-list is denied.
   - Mount with no preset gives `read-only` + `never`.
-- [ ] **Implement:**
+- [x] **Implement:**
   - Delete the duplicated inline waterfall in `dispatch`; dispatch calls `Pipeline(...).Execute`.
   - `Mount` takes `MountConfig{Preset string; Sandbox sandbox.Config}`, validates with `sandbox.Validate`, and applies the preset.
-- [ ] Golden test still PASS (all prod tools are read-only, per D2).
-- [ ] Commit `feat(harness): wire sandbox, approval and preset into tool pipeline`.
+- [x] Golden test still PASS (all prod tools are read-only, per D2).
+- [x] Commit `feat(harness): wire sandbox, approval and preset into tool pipeline`.
 
 ## Phase B — DSH core ports with real consumers
 
@@ -205,11 +230,11 @@ Revises follow-up Task 1.
 **Files:** `harness/llm/failure.go` + test; `lib/ai/chat.go` (adds `Code` only, per D1); `harness/llm/adapter.go`.
 **DSH:** `llm/llm/src/error.ts:17-71,141-175`, `adapter-failure.ts:17`, `llm-deepseek/src/transport.ts:41-47`.
 
-- [ ] Keep the follow-up plan's `FailureCode` constants, regexes and tests. They are correct: every case was checked against the RE2 syntax. Two changes:
+- [x] Keep the follow-up plan's `FailureCode` constants, regexes and tests. They are correct: every case was checked against the RE2 syntax. Two changes:
   - Drop `CodeAccountQuota` and `CodeInvalidCredential` (no consumer).
   - Add `CodeAuth = "AUTH"`, `CodeInvalidRequest = "INVALID_REQUEST"`, and `HTTPCode(status) = fmt.Sprintf("HTTP_%d", status)`.
-- [ ] Add `DefaultRetryableCodes = {EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT}` (5, `retry-policy.ts:19-25`). Do **not** export a separate `retryChoice` set; it has no consumer.
-- [ ] Add `func ClassifyHTTP(status int, detail string) FailureCode`, checking in this order:
+- [x] Add `DefaultRetryableCodes = {EMPTY_RESPONSE, RATE_LIMIT, SERVER, TIMEOUT, TRANSPORT}` (5, `retry-policy.ts:19-25`). Do **not** export a separate `retryChoice` set; it has no consumer.
+- [x] Add `func ClassifyHTTP(status int, detail string) FailureCode`, checking in this order:
   1. 401/403 → AUTH
   2. quota regex or 402 → QUOTA
   3. 429 → RATE_LIMIT
@@ -219,28 +244,28 @@ Revises follow-up Task 1.
   7. otherwise `HTTP_n`
 
   Table test each row, including "400 + context wording → CONTEXT_WINDOW_EXCEEDED".
-- [ ] `lib/ai`:
+- [x] `lib/ai`:
   - Set `ProviderError.Code = string(llm.ClassifyHTTP(status, body[:min(len,4096)]))`. To avoid an import cycle, put `ClassifyHTTP` in `lib/ai/classify.go` and have `harness/llm` re-export the constants.
   - Map `ctx.DeadlineExceeded` → TIMEOUT, network errors → TRANSPORT, empty stream → EMPTY_RESPONSE.
   - `security_test.go` must still prove that no body text reaches `Error()`.
-- [ ] The adapter wraps every gateway error with `NewFailure(msg, code, err)`.
-- [ ] Commit `feat(harness): classify provider failures into DSH codes`.
+- [x] The adapter wraps every gateway error with `NewFailure(msg, code, err)`.
+- [x] Commit `feat(harness): classify provider failures into DSH codes`.
 
 ### Task 8: DSH retry policy (G8)
 
 **Files:** `harness/llm/retry.go` + test; `agentloop/loop.go` `call`.
 **DSH:** `llm/llm/src/retry-policy.ts:15-25,155`, `llm/llm-retry/src/index.ts:60,129`.
 
-- [ ] **Failing tests**, with an injected `sleep func(ctx, d) error` and a seeded `rand`:
+- [x] **Failing tests**, with an injected `sleep func(ctx, d) error` and a seeded `rand`:
   - `Delay(1)=500ms±10%`, `Delay(2)=1s±10%`, and `Delay(10)` capped at 10 s.
   - Retry on `RATE_LIMIT`; no retry on `AUTH`, `QUOTA` or `CONTEXT_WINDOW_EXCEEDED`.
   - No retry once a delta was emitted (keep the existing rule).
   - Retry count resets per step.
-- [ ] **Implement:**
+- [x] **Implement:**
   - `type RetryPolicy struct{ MaxRetries int; Initial, Max time.Duration; Jitter float64; Codes map[string]bool }`.
   - `call()` routes on `services.ErrorCode(err)`.
   - Keep `LoopConfig.MaxRetries` (bounded 0–3) as the cap instead of DSH's 5; note this in the doc comment.
-- [ ] Commit `feat(harness): port DSH exponential retry policy`.
+- [x] Commit `feat(harness): port DSH exponential retry policy`.
 
 ### Task 9: Head+tail result retention and tool-result pruning (G10, G11)
 
@@ -249,35 +274,35 @@ Revises follow-up Task 4.
 **Files:** `harness/core/retention.go` + test, `agentloop/truncate.go`, `agentloop/compact.go`.
 **DSH:** `util/output-retention` (TextRetainer head+tail), `compaction/compaction-tool-result-pruner/src/config.ts` (8192/4096/1024 and the fixed marker), `compaction/compaction/src/tool-pairing.ts:112`.
 
-- [ ] **Failing tests:**
+- [x] **Failing tests:**
   - `RetainHeadTail(s, head, tail)` keeps both ends, never splits a rune, and inserts the marker `[... tool result middle pruned ...]` with the omitted byte count.
   - Under the cap it returns the input unchanged.
   - The existing `truncate_test.go` cases are updated to expect head+tail.
-- [ ] **Failing test:** `ToolPairingBalanced(history []ai.Message, cut int) (bool, error)`, which works on **messages** (harness-go has no event log).
+- [x] **Failing test:** `ToolPairingBalanced(history []ai.Message, cut int) (bool, error)`, which works on **messages** (harness-go has no event log).
   - It counts `+len(ToolCalls)` per assistant and `-1` per `tool`.
   - It returns an `error` (not `panic`) when a tool result has no call.
-- [ ] Compaction:
+- [x] Compaction:
   - Step 1 prunes the middle of tool messages older than `KeepLastMessages` instead of wiping them.
   - The drop step's cut must satisfy `ToolPairingBalanced`.
   - Emit `{Type:"compaction", Text: describe()}` as the legacy runner did (`runner.go:189`, `:545`).
-- [ ] Commit `feat(harness): port DSH head+tail retention and pairing-safe compaction`.
+- [x] Commit `feat(harness): port DSH head+tail retention and pairing-safe compaction`.
 
 ### Task 10: Context-overflow recovery (needs D1)
 
 **Files:** `agentloop/loop.go`, test.
 **DSH:** `compaction-basic` trigger (c), `_registerAutomaticCompaction` `:162`; `maxOverflowRetries`.
 
-- [ ] **Failing test:** the first call fails with code `CONTEXT_WINDOW_EXCEEDED`. The loop then force-compacts (target `ContextTokenCap/2`), retries once, and succeeds. If the second call overflows again, return the error.
-- [ ] Implement it with an overflow counter that resets after a successful assistant message.
-- [ ] Commit `feat(harness): recover from context-window overflow`.
+- [x] **Failing test:** the first call fails with code `CONTEXT_WINDOW_EXCEEDED`. The loop then force-compacts (target `ContextTokenCap/2`), retries once, and succeeds. If the second call overflows again, return the error.
+- [x] Implement it with an overflow counter that resets after a successful assistant message.
+- [x] Commit `feat(harness): recover from context-window overflow`.
 
 ### Task 11: Token estimator parity
 
 **Files:** `agentloop/compact.go` `estimateTokens` + test.
 **DSH:** `llm/token-meter/src/estimate.ts:13,19,99`, `index.ts:151`.
 
-- [ ] **Failing test:** the estimate equals `Σ(len/4 + ROLE_OVERHEAD 4)` plus the tool schema JSON `/4`. When the last call reported usage, the baseline is `PromptTokens + CompletionTokens` of that call plus an estimate of only the messages appended since.
-- [ ] Commit `feat(harness): port DSH token estimator with usage baseline`.
+- [x] **Failing test:** the estimate equals `Σ(len/4 + ROLE_OVERHEAD 4)` plus the tool schema JSON `/4`. When the last call reported usage, the baseline is `PromptTokens + CompletionTokens` of that call plus an estimate of only the messages appended since.
+- [x] Commit `feat(harness): port DSH token estimator with usage baseline`.
 
 ## Phase C — Deferred (each needs a consumer or a decision first)
 

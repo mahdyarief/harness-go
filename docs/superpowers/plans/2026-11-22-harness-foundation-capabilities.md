@@ -18,6 +18,8 @@
 - `lib/ai` (gateway), `lib/kb` (Hybrid RAG)
 - PostgreSQL 18 + RLS per tenant
 
+**Status: NOT STARTED** (planned 2026-11-22). Tick boxes and add commit hashes to an "Execution status" section as tasks land.
+
 ---
 
 ## Capability map

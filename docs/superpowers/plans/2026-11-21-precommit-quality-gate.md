@@ -1,5 +1,7 @@
 # Pre-commit Quality Gate Implementation Plan
 
+**Status: DONE** in `6ecbe78..1da7a7e`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Pasang gate otomatis di `git commit` yang mengecek LOC, format, lint, pesan commit, dan secret/hygiene hanya pada file yang di-stage.

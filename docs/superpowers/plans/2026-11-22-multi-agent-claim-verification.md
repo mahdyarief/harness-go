@@ -24,6 +24,8 @@
 - the existing harness: `server/internal/harness/*`
 - the existing Hybrid RAG: `lib/kb` (`WeightedRRF`), `lib/kbembed`
 
+**Status: NOT STARTED** (planned 2026-11-22). Tick boxes and add commit hashes to an "Execution status" section as tasks land.
+
 ---
 
 ## What already exists and what does not

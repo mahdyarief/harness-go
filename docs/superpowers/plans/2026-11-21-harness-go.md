@@ -20,6 +20,16 @@
 
 ---
 
+## Execution status
+
+**Status: DONE** in `a128621` (feat: hsg harness-go foundation) and `d8200c0` (align harness with deepseek harness guardrails). The boxes were ticked after the fact, during the 2026-11-22 plan review.
+
+Deviations from the text below:
+- The code samples had compile bugs (`s.On` as a generic method, a waterfall test mutating a by-value event). The implementation fixed them.
+- Task 3 `Sessions` / `SessionsKey`: the interface was declared but never implemented. It is replaced by `RunLog` in `2026-11-22-harness-foundation-capabilities.md` Task 5.
+- Task 3 `GuardsKey`: removed in `d983a97`. Loop guards are passed through `MountConfig.LoopGuards`.
+- Task 8 behaviour gaps (budgets, concurrency, resume, retry, pipeline) were closed by `2026-11-21-dsh-core-parity.md`.
+
 ### Task 1: Typed service scope with disposers
 
 **Files:**
@@ -30,7 +40,7 @@
 - Consumes: nothing.
 - Produces: `type Key[T any] struct{ name string }`, `func NewKey[T any](name string) Key[T]`, `type Disposer func() error`, `type Scope struct`, `func New(parent *Scope) *Scope`, `func (s *Scope) Provide(key fmt.Stringer, value any, dispose Disposer) error`, `func Require[T any](s *Scope, key Key[T]) (T, bool)`, `func (s *Scope) Child() *Scope`, `func (s *Scope) Dispose() error`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```go
 package scope_test
@@ -75,12 +85,12 @@ func TestDisposeRunsLIFOAndJoinsErrors(t *testing.T) {
 
 Add `strings` to the test imports.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd server && go test ./internal/harness/scope -v`
 Expected: FAIL with "undefined: scope"
 
-- [ ] **Step 3: Implement minimal scope**
+- [x] **Step 3: Implement minimal scope**
 
 ```go
 package scope
@@ -153,12 +163,12 @@ func (s *Scope) Dispose() error {
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd server && go test ./internal/harness/scope -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/internal/harness/scope
@@ -177,7 +187,7 @@ git commit -m "feat(harness): add typed service scope with disposers"
 - Consumes: `Scope` from Task 1.
 - Produces: `type Event[T any] struct{ Name string; Payload T }`, `func (s *Scope) On[T any](name string, fn func(Event[T]) error) Disposer`, `func Emit[T any](s *Scope, ev Event[T]) error`, `func Waterfall[T any](s *Scope, ev Event[T], seed T) (T, error)`, `func Bail[T any](s *Scope, ev Event[T]) (bool, error)`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```go
 package scope_test
@@ -223,12 +233,12 @@ func TestEmitWaterfallAndBail(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd server && go test ./internal/harness/scope -run TestEmitWaterfallAndBail -v`
 Expected: FAIL with "undefined: scope.Event"
 
-- [ ] **Step 3: Implement event dispatch**
+- [x] **Step 3: Implement event dispatch**
 
 ```go
 package scope
@@ -298,12 +308,12 @@ func Bail[T any](s *Scope, ev Event[T]) (bool, error) {
 
 Split this into separate files (`scope/events.go` and `scope/events_test.go`) and add any missing imports with `goimports`-style grouping.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd server && go test ./internal/harness/scope -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/internal/harness/scope
@@ -322,7 +332,7 @@ git commit -m "feat(harness): add emit, waterfall, and bail events"
 - Consumes: `scope.Key` from Task 1.
 - Produces: keys and interfaces used by all later tasks: `AgentKey`, `AgentLoopKey`, `ToolsKey`, `LLMKey`, `SessionsKey`, `SystemPromptKey`, `GuardsKey`, `SandboxKey`, `ApprovalKey`, `Agent`, `AgentLoop`, `Tool`, `ToolResult`, `Reference`, `LLM`, `Sessions`, `GuardDecision`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```go
 package services_test
@@ -353,12 +363,12 @@ func TestAgentKeyResolvesAgent(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd server && go test ./internal/harness/services -v`
 Expected: FAIL with "undefined: services.AgentKey"
 
-- [ ] **Step 3: Implement service contracts**
+- [x] **Step 3: Implement service contracts**
 
 ```go
 package services
@@ -467,12 +477,12 @@ var (
 
 Remove the self-referential alias lines if the compiler reports a cycle; the goal is to keep `Reference` wire-compatible with the old `agent.Reference` JSON shape.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd server && go test ./internal/harness/services -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/internal/harness/services
@@ -491,7 +501,7 @@ git commit -m "feat(harness): define service keys and contracts"
 - Consumes: `services.Agent`, `services.AgentLoop`, `scope.Require` from Tasks 1-3.
 - Produces: `func NewAgent(s *scope.Scope) services.Agent`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```go
 package core_test
@@ -524,12 +534,12 @@ func TestFacadeDelegatesToLoop(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd server && go test ./internal/harness/core -v`
 Expected: FAIL with "undefined: core.NewAgent"
 
-- [ ] **Step 3: Implement facade**
+- [x] **Step 3: Implement facade**
 
 ```go
 package core
@@ -556,12 +566,12 @@ func (a *agentFacade) Run(ctx context.Context, req services.RunRequest, sink ser
 
 Add `var ErrLoopMissing = errors.New("agentLoop service missing")` to `services/services.go`.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd server && go test ./internal/harness/core -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/internal/harness/core server/internal/harness/services
@@ -580,7 +590,7 @@ git commit -m "feat(harness): add agent facade with swappable loop"
 - Consumes: `services.LLM`, `ai.Gateway` from `lib/ai`.
 - Produces: `func New(gw *ai.Gateway) services.LLM`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```go
 package llm_test
@@ -604,12 +614,12 @@ func TestAdapterReturnsConfigErrorForNilGateway(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd server && go test ./internal/harness/llm -v`
 Expected: FAIL with "undefined: llm.New"
 
-- [ ] **Step 3: Implement adapter**
+- [x] **Step 3: Implement adapter**
 
 ```go
 package llm
@@ -650,12 +660,12 @@ func (a *adapter) ChatStream(ctx context.Context, messages []ai.Message, opts ai
 }
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd server && go test ./internal/harness/llm -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/internal/harness/llm
@@ -678,7 +688,7 @@ git commit -m "feat(harness): add LLM adapter over ai gateway"
 - Consumes: `services.GuardDecision` and scope keys from Task 3.
 - Produces: `guard.NewRepeatTool(window int)`, `guard.NewTimeout(d time.Duration)`, `sandbox.Validate(cfg sandbox.Config) error`, `approval.Decide(cfg approval.Config, tool string) services.GuardDecision`, `preset.Apply(s *scope.Scope, name string) error`.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```go
 // guard/repeat_test.go
@@ -700,21 +710,21 @@ func TestRepeatToolFlagsExactRepeat(t *testing.T) {
 
 Write analogous tests: timeout returns a `services.GuardDecision` with `Allowed=false` after the deadline; `sandbox.Validate` accepts `read-only` and rejects a relative `workspaceRoot` in `workspace-write`; `approval.Decide("never")` allows and `("ask")` returns `NeedsApproval`; `preset.Apply` installs allow-list, sandbox, and approval keys in a child scope.
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `cd server && go test ./internal/harness/guard ./internal/harness/sandbox ./internal/harness/approval ./internal/harness/preset -v`
 Expected: FAIL with "undefined" for each package.
 
-- [ ] **Step 3: Implement guardrails**
+- [x] **Step 3: Implement guardrails**
 
 Implement each package with no external dependencies. Repeat-tool uses a bounded map keyed by tool name plus canonicalized args JSON. Timeout wraps a `context.WithTimeout` call around tool execution helpers. Sandbox config carries `Mode`, `WorkspaceRoot`, `AdditionalWritableRoots`; `Validate` requires absolute paths and rejects trailing separators. Approval config carries `Policy` (`ask`/`never`) and returns a decision with `Reason` in Indonesian. Preset config is a map of named combinations of sandbox mode, approval policy, and tool allow-list; `Apply` provides those into the scope via `Provide`.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `cd server && go test ./internal/harness/guard ./internal/harness/sandbox ./internal/harness/approval ./internal/harness/preset -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/internal/harness/guard server/internal/harness/sandbox server/internal/harness/approval server/internal/harness/preset
@@ -734,7 +744,7 @@ git commit -m "feat(harness): add DSH-inspired guardrails"
 - Consumes: `services.Tools`, `services.Tool`, `lib/agent.Registry` and `lib/agent.Tool`.
 - Produces: `func Adapt(r *agent.Registry) services.Tools`, `func Pipeline(s *scope.Scope, next services.Tool) services.Tool`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```go
 package tools_test
@@ -774,21 +784,21 @@ func TestPipelineCanVetoBeforeExecute(t *testing.T) {
 
 Add `var ErrDenied = errors.New("tool denied")` to `services`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd server && go test ./internal/harness/tools -v`
 Expected: FAIL with "undefined: tools.Pipeline"
 
-- [ ] **Step 3: Implement pipeline and adapter**
+- [x] **Step 3: Implement pipeline and adapter**
 
 `Pipeline` resolves `services.SandboxKey` and `services.ApprovalKey`, fires `tool.before` waterfall, returns `ErrDenied` on veto, then calls `guard.NewTimeout` around `next.Execute`, collects references, and emits `tool.after`. `Adapt` wraps every `agent.Tool` in a small struct implementing `services.Tool`, converting `agent.Reference` to `services.Reference` with identical JSON tags.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd server && go test ./internal/harness/tools -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/internal/harness/tools
@@ -808,7 +818,7 @@ git commit -m "feat(harness): add guarded tool pipeline"
 - Consumes: `services.AgentLoop`, `services.LLM`, `services.Tools`, `services.Sink`, `services.Event`, scope from prior tasks.
 - Produces: `func New(s *scope.Scope) services.AgentLoop`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```go
 package agentloop_test
@@ -842,21 +852,21 @@ func TestDefaultLoopRunsWithFakeLLM(t *testing.T) {
 
 Add the `hsg/internal/lib/ai` import to the test.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd server && go test ./internal/harness/agentloop -v`
 Expected: FAIL with "undefined: agentloop.New"
 
-- [ ] **Step 3: Implement default loop**
+- [x] **Step 3: Implement default loop**
 
 Wrap the existing `lib/agent.Runner` logic or port it behind `services.AgentLoop`: read `LLM`, `Tools`, `SystemPrompt`, and `Guards` from scope; preserve existing budget defaults from `Config.withDefaults`; emit `services.AIEvent` values through `Sink`; keep continuation heuristics from `lib/agent/completion.go` as a private policy. Do not change SSE wire tags.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd server && go test ./internal/harness/agentloop -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/internal/harness/agentloop
@@ -877,7 +887,7 @@ git commit -m "feat(harness): add default swappable agent loop"
 - Consumes: all prior tasks.
 - Produces: `func Mount(gw *ai.Gateway, registry *agent.Registry, cfg MountConfig) (*scope.Scope, error)`, `type MountConfig struct{ Sandbox sandbox.Config; Approval approval.Config; Preset string }`.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```go
 package harness_test
@@ -903,21 +913,21 @@ func TestMountRegistersServices(t *testing.T) {
 }
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd server && go test ./internal/harness -v`
 Expected: FAIL with "undefined: harness.Mount"
 
-- [ ] **Step 3: Implement Mount and wire handler**
+- [x] **Step 3: Implement Mount and wire handler**
 
 `Mount` validates sandbox and approval config, creates root scope, provides the LLM adapter, adapted tools, system prompt, agent loop, and `core.NewAgent` facade. In `chat.go`, replace `agent.NewRunner(...)` with a child scope from an app-scoped `harness.Mount` created at handler construction, override per-request `Sessions`/preset, and call `Agent.Run`. Keep `stream` and `block` signatures accepting the harness Agent so SSE frame generation stays byte-identical.
 
-- [ ] **Step 4: Run tests to verify it passes**
+- [x] **Step 4: Run tests to verify it passes**
 
 Run: `cd server && go test ./internal/harness ./internal/handlers ./internal/lib/agent/... ./internal/lib/ai/... -v`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/internal/harness server/internal/handlers/chat.go server/internal/handlers/knowledge_tool.go
@@ -936,7 +946,7 @@ git commit -m "feat(harness): mount services into chat handler"
 - Consumes: handler wiring from Task 9.
 - Produces: one golden test comparing SSE frames and billing amounts before/after rewrite.
 
-- [ ] **Step 1: Write failing test**
+- [x] **Step 1: Write failing test**
 
 ```go
 package handlers_test
@@ -960,21 +970,21 @@ func TestHarnessRewriteKeepsSSEAndBilling(t *testing.T) {
 
 Create `server/internal/handlers/testdata/harness_golden.json` with the captured frame list and token counts from the existing chat test fixture.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `cd server && go test ./internal/handlers -run TestHarnessRewriteKeepsSSEAndBilling -v`
 Expected: FAIL with "undefined: handlers.RunHarnessGolden"
 
-- [ ] **Step 3: Implement golden harness**
+- [x] **Step 3: Implement golden harness**
 
 Add a small exported helper that runs the existing fake chat fixture through the new handler path and returns decoded SSE frames plus usage. Do not alter production SSE behavior to satisfy the test.
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `cd server && go test ./internal/handlers -run TestHarnessRewriteKeepsSSEAndBilling -v`
 Expected: PASS
 
-- [ ] **Step 5: Run full checks and commit**
+- [x] **Step 5: Run full checks and commit**
 
 Run: `cd server && go test ./...`
 Run: `make audit` from repo root (gofi layer audit must pass)
