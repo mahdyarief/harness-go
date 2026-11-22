@@ -16,13 +16,14 @@ func TestParallelRunsAllListenersAndJoinsErrors(t *testing.T) {
 	var mu sync.Mutex
 	var slowDone, fastDone bool
 	scope.On(root, "fanout", func(ev *scope.Event[policyEvent]) error {
-		time.Sleep(5 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 		mu.Lock()
 		slowDone = true
 		mu.Unlock()
 		return nil
 	}, scope.EventOptions{Prepend: true})
 	scope.On(root, "fanout", func(ev *scope.Event[policyEvent]) error {
+		time.Sleep(50 * time.Millisecond)
 		mu.Lock()
 		fastDone = true
 		mu.Unlock()
@@ -39,7 +40,10 @@ func TestParallelRunsAllListenersAndJoinsErrors(t *testing.T) {
 	if !slowDone || !fastDone {
 		t.Fatalf("done: slow=%v fast=%v; want both", slowDone, fastDone)
 	}
-	if elapsed >= 10*time.Millisecond {
+	// Both listeners sleep 50ms; in parallel the fan-out must finish well
+	// under the 100ms a serial run takes. The margin absorbs OS sleep
+	// granularity, which is what the previous 5ms/10ms version could not.
+	if elapsed >= 90*time.Millisecond {
 		t.Fatalf("elapsed = %v; listeners ran serially", elapsed)
 	}
 }
