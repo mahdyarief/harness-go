@@ -260,7 +260,17 @@ func (l *defaultLoop) call(ctx context.Context, model services.LLM, history []ai
 		if err != nil && emitted {
 			result.Content = streamed.String()
 		}
-		if err == nil || emitted || ctx.Err() != nil || !policy.Retryable(err) || attempt >= cfg.MaxRetries {
+		// DSH EMPTY_RESPONSE: a finished stream with no text and no tool calls
+		// is retried like a transient failure. Once retries are spent the empty
+		// result is returned without an error, so the continuation policy
+		// handles it as it always did.
+		empty := err == nil && !emitted && result.Content == "" &&
+			len(result.ToolCalls) == 0 && result.FinishReason != "length"
+		retryErr := err
+		if empty {
+			retryErr = hsgllm.NewFailure("empty model response", string(hsgllm.CodeEmptyResponse), nil)
+		}
+		if (err == nil && !empty) || emitted || ctx.Err() != nil || !policy.Retryable(retryErr) || attempt >= cfg.MaxRetries {
 			return result, billed, err
 		}
 		if sleepErr := policy.Sleep(ctx, policy.Delay(attempt+1)); sleepErr != nil {
