@@ -5,10 +5,10 @@ import (
 	"database/sql"
 	"errors"
 	"github.com/google/uuid"
-	"strings"
-	"time"
 	"hsg/internal/lib/apperr"
 	"hsg/internal/models"
+	"strings"
+	"time"
 )
 
 type TenantRepository struct{ db *sql.DB }
@@ -57,6 +57,26 @@ func verified(ctx context.Context, tx *sql.Tx, user, tenant uuid.UUID, admin boo
 	}
 	return setTenant(ctx, tx, tenant)
 }
+
+// MemberRole returns the caller's role on one tenant. It backs the review
+// inbox guard: only reviewer and tenant_admin may decide.
+func (r *TenantRepository) MemberRole(ctx context.Context, tenant, user uuid.UUID) (string, error) {
+	tx, err := r.begin(ctx, user)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+	var role string
+	err = tx.QueryRowContext(ctx, `SELECT role FROM tenant_memberships WHERE user_id=$1 AND tenant_id=$2`, user, tenant).Scan(&role)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", apperr.ErrForbidden
+	}
+	if err != nil {
+		return "", err
+	}
+	return role, tx.Commit()
+}
+
 func (r *TenantRepository) List(ctx context.Context, user uuid.UUID) ([]models.Tenant, error) {
 	tx, err := r.begin(ctx, user)
 	if err != nil {
