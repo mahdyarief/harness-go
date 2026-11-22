@@ -105,7 +105,7 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 				defer func() { <-sem }()
 				start := l.now()
 				toolCtx, cancel := context.WithTimeout(ctx, cfg.ToolTimeout)
-				res, err := j.run(toolCtx)
+				res, err := runBounded(toolCtx, j.run)
 				cancel()
 				elapsed := int(l.now().Sub(start).Milliseconds())
 				record := services.ToolRecord{Turn: turn, Name: j.tool.Name(), Arguments: calls[j.index].Function.Arguments, DurationMs: elapsed}
@@ -182,4 +182,28 @@ func canonicalArgs(raw string) string {
 		}
 	}
 	return strings.Join(strings.Fields(raw), " ")
+}
+
+type toolOutcome struct {
+	res services.ToolResult
+	err error
+}
+
+// runBounded returns when the tool finishes or its context ends, whichever
+// comes first. Cooperative tools stop on ctx as in DSH guard/timeout-policy;
+// a tool that ignores ctx is left to finish in the background. Its late result
+// lands in a buffered channel nobody reads, so it can never touch the loop's
+// results, and ToolTimeout / MaxDuration stay hard bounds on the run.
+func runBounded(ctx context.Context, run func(context.Context) (services.ToolResult, error)) (services.ToolResult, error) {
+	done := make(chan toolOutcome, 1)
+	go func() {
+		res, err := run(ctx)
+		done <- toolOutcome{res: res, err: err}
+	}()
+	select {
+	case o := <-done:
+		return o.res, o.err
+	case <-ctx.Done():
+		return services.ToolResult{}, ctx.Err()
+	}
 }
