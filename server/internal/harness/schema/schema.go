@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"reflect"
 	"regexp"
 )
@@ -279,9 +280,7 @@ func jsonEqual(a, b any) bool {
 		if !ok {
 			return false
 		}
-		xf, errX := x.Float64()
-		yf, errY := y.Float64()
-		return errX == nil && errY == nil && xf == yf
+		return sameNumber(x, y)
 	case map[string]any:
 		y, ok := b.(map[string]any)
 		if !ok || len(x) != len(y) {
@@ -317,12 +316,16 @@ func constEquals(raw json.RawMessage, value any) bool {
 	if err := dec.Decode(&want); err != nil {
 		return false
 	}
-	wn, wok := want.(json.Number)
-	vn, vok := value.(json.Number)
-	if wok && vok {
-		wf, errW := wn.Float64()
-		vf, errV := vn.Float64()
-		return errW == nil && errV == nil && wf == vf
+	return jsonEqual(want, value)
+}
+
+// sameNumber compares JSON numbers exactly; Float64 would make adjacent
+// integers above 2^53 equal.
+func sameNumber(a, b json.Number) bool {
+	ra, okA := new(big.Rat).SetString(a.String())
+	rb, okB := new(big.Rat).SetString(b.String())
+	if okA && okB {
+		return ra.Cmp(rb) == 0
 	}
-	return fmt.Sprint(want) == fmt.Sprint(value) && reflect.TypeOf(want) == reflect.TypeOf(value)
+	return a.String() == b.String()
 }

@@ -146,6 +146,7 @@ func TestEnumPreservesJSONTypes(t *testing.T) {
 		{`{"type":"object","properties":{"v":{"enum":[1]}}}`, `{"v":"1"}`, false},
 		{`{"type":"object","properties":{"v":{"enum":["true"]}}}`, `{"v":true}`, false},
 		{`{"type":"object","properties":{"v":{"enum":[1]}}}`, `{"v":1.0}`, true},
+		{`{"type":"object","properties":{"v":{"enum":[9007199254740992]}}}`, `{"v":9007199254740993}`, false},
 	} {
 		got := compile(t, tc.schema).Validate(json.RawMessage(tc.args))
 		if (len(got) == 0) != tc.valid {
