@@ -435,7 +435,7 @@ Tasks 8–12 can run in parallel after Phase 1. Task 14 needs 4, 5, 8 and 11.
 
 ## Execution status
 
-All 14 tasks landed on `main` between `90321ee` and `7f942cd`; the 2026-11-24 review fix series follows in `FIX`.
+All 14 tasks landed on `main` between `90321ee` and `7f942cd`; the 2026-11-24 review fix series follows in `48553bb` and `aae1872`.
 
 | Task | Commit |
 |---|---|
@@ -453,4 +453,4 @@ All 14 tasks landed on `main` between `90321ee` and `7f942cd`; the 2026-11-24 re
 | 12 redact + transform | `d038532` |
 | 13 cost accounting | `8152bd0` |
 | 14 experiment harness | `7f942cd` |
-| review fixes (wiring, metadata, replay) | `FIX` |
+| review fixes (wiring, metadata, replay) | `48553bb`, `aae1872` |
