@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -86,7 +88,7 @@ func encodeVector(vector []float32) (string, error) {
 // profile id is configured both branches are empty and the caller falls back to
 // lexical-only retrieval. Semantic uses exact cosine (<=>) with strict-order
 // HNSW scan and a bounded statement timeout so a bad plan cannot stall chat.
-func (r *KnowledgeSemanticRepository) Candidates(ctx context.Context, user uuid.UUID, scope models.ChatScope, query string, profile uuid.UUID, vector []float32) ([]models.KnowledgeHit, []models.KnowledgeHit, error) {
+func (r *KnowledgeSemanticRepository) Candidates(ctx context.Context, user uuid.UUID, scope models.ChatScope, query string, profile uuid.UUID, vector []float32, filters ...models.KnowledgeFilter) ([]models.KnowledgeHit, []models.KnowledgeHit, error) {
 	if r == nil || r.db == nil {
 		return nil, nil, apperr.ErrForbidden
 	}
@@ -112,7 +114,32 @@ func (r *KnowledgeSemanticRepository) Candidates(ctx context.Context, user uuid.
 	if !scope.Platform() {
 		tenant = &scope.TenantID
 	}
-	rows, err := tx.QueryContext(ctx, hybridCandidateSQL(scope.Platform()), strings.Join(strings.Fields(query), " "), encoded, profile, tenant)
+	var filter models.KnowledgeFilter
+	if len(filters) > 0 {
+		filter = filters[0]
+	}
+	// Attribute keys are sorted so the generated SQL is stable for identical
+	// filters; values are passed as parameters, never inlined.
+	keys := make([]string, 0, len(filter.Attributes))
+	for key := range filter.Attributes {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	args := []any{strings.Join(strings.Fields(query), " "), encoded, profile, tenant}
+	var predicates []string
+	for _, key := range keys {
+		args = append(args, key, filter.Attributes[key])
+		predicates = append(predicates, fmt.Sprintf("d.attributes @> jsonb_build_object($%d::text, $%d::jsonb)", len(args)-1, len(args)))
+	}
+	if !filter.ValidAt.IsZero() {
+		args = append(args, filter.ValidAt)
+		predicates = append(predicates, fmt.Sprintf("coalesce(d.valid_from, '-infinity'::timestamptz) <= $%d AND coalesce(d.valid_to, 'infinity'::timestamptz) >= $%d", len(args), len(args)))
+	}
+	clause := ""
+	if len(predicates) > 0 {
+		clause = " AND " + strings.Join(predicates, " AND ")
+	}
+	rows, err := tx.QueryContext(ctx, hybridCandidateSQL(scope.Platform(), clause), args...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -121,9 +148,11 @@ func (r *KnowledgeSemanticRepository) Candidates(ctx context.Context, user uuid.
 	for rows.Next() {
 		var branch string
 		var h models.KnowledgeHit
-		if err = rows.Scan(&branch, &h.ChunkID, &h.Position, &h.DocumentID, &h.Title, &h.Filename, &h.Format, &h.HeadingPath, &h.Locator, &h.Content, &h.Global, &h.ContentHash, &h.Score); err != nil {
+		var attributes []byte
+		if err = rows.Scan(&branch, &h.ChunkID, &h.Position, &h.DocumentID, &h.Title, &h.Filename, &h.Format, &h.HeadingPath, &h.Locator, &h.Content, &h.Global, &h.ContentHash, &attributes, &h.ValidFrom, &h.ValidTo, &h.Version, &h.Score); err != nil {
 			return nil, nil, err
 		}
+		h.Attributes = attributes
 		if branch == "lexical" {
 			lexical = append(lexical, h)
 		} else {
@@ -140,19 +169,19 @@ func (r *KnowledgeSemanticRepository) Candidates(ctx context.Context, user uuid.
 // to global and tenant partitions via UNION ALL, mirroring the lexical path.
 // Semantic matches by profile id and content hash so re-embedding under the same
 // profile reuses vectors without drift.
-func hybridCandidateSQL(tenant bool) string {
+func hybridCandidateSQL(tenant bool, clause string) string {
 	lexical, semantic := []string{}, []string{}
 	for _, local := range []bool{false, true} {
 		if local && !tenant {
 			continue
 		}
-		predicate := `c.tenant_id IS NULL AND d.tenant_id IS NULL AND $4::uuid IS NULL AND d.status='published'`
+		predicate := `c.tenant_id IS NULL AND d.tenant_id IS NULL AND $4::uuid IS NULL AND d.status='published'` + clause
 		epredicate := `e.tenant_id IS NULL AND $4::uuid IS NULL`
 		if local {
-			predicate = `c.tenant_id=$4::uuid AND d.tenant_id=$4::uuid AND d.status='published'`
+			predicate = `c.tenant_id=$4::uuid AND d.tenant_id=$4::uuid AND d.status='published'` + clause
 			epredicate = `e.tenant_id=$4::uuid`
 		}
-		columns := `c.id,c.position,d.id AS document_id,d.title,d.filename,d.format,c.heading_path,c.locator,c.content,(d.tenant_id IS NULL) AS global,encode(sha256((c.heading_path||E'\n'||c.content)::bytea),'hex') AS content_hash`
+		columns := `c.id,c.position,d.id AS document_id,d.title,d.filename,d.format,c.heading_path,c.locator,c.content,(d.tenant_id IS NULL) AS global,encode(sha256((c.heading_path||E'\n'||c.content)::bytea),'hex') AS content_hash,d.attributes,d.valid_from,d.valid_to,d.version`
 		lexical = append(lexical, `(SELECT `+columns+`,ts_rank_cd(c.search,q.query)::float8 AS score FROM knowledge_chunks c JOIN knowledge_documents d ON d.id=c.document_id CROSS JOIN q WHERE `+predicate+` AND c.search @@ q.query ORDER BY score DESC,c.document_id,c.position,c.id LIMIT 50)`)
 		semantic = append(semantic, `(SELECT `+columns+`,(e.embedding <=> $2::vector)::float8 AS score FROM knowledge_chunk_embeddings e JOIN knowledge_chunks c ON c.id=e.chunk_id AND c.tenant_id IS NOT DISTINCT FROM e.tenant_id JOIN knowledge_documents d ON d.id=c.document_id WHERE `+predicate+` AND `+epredicate+` AND e.profile_id=$3::uuid AND e.content_hash=encode(sha256((c.heading_path||E'\n'||c.content)::bytea),'hex') ORDER BY e.embedding <=> $2::vector LIMIT 50)`)
 	}

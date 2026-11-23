@@ -14,7 +14,8 @@ func TestKnowledgeColumnsMatchScannerOrder(t *testing.T) {
 	expected := []string{
 		"id", "tenant_id", "category_id", "category_name", "title", "filename",
 		"format", "size_bytes", "char_count", "chunk_count", "uploaded_by",
-		"created_at", "updated_at", "extraction_metadata", "status",
+		"created_at", "updated_at", "extraction_metadata", "attributes",
+		"valid_from", "valid_to", "version", "status",
 	}
 	for name, cols := range map[string]string{
 		"knowledgeColumns":     knowledgeColumns,

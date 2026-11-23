@@ -35,6 +35,10 @@ type Reference struct {
 	// "semantic", or "both". It is carried into the usage log so a cited event
 	// keeps the embedding attribution of the retrieval that created it.
 	Source string `json:"source,omitempty"`
+	// Meta carries the document's retrieval metadata: attributes plus the
+	// version label. It travels on every citation so the model can name the
+	// regulation version it quoted without a second query.
+	Meta map[string]any `json:"meta,omitempty"`
 }
 
 // ToolResult is what a tool returns. Output becomes the tool message the model

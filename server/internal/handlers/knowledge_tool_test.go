@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"hsg/internal/app"
@@ -12,16 +13,20 @@ import (
 )
 
 type knowledgeSearchStub struct {
-	hits  []models.KnowledgeHit
-	user  uuid.UUID
-	scope models.ChatScope
-	query string
-	limit int
-	calls int
+	hits   []models.KnowledgeHit
+	user   uuid.UUID
+	scope  models.ChatScope
+	query  string
+	limit  int
+	filter models.KnowledgeFilter
+	calls  int
 }
 
-func (s *knowledgeSearchStub) Search(_ context.Context, u uuid.UUID, scope models.ChatScope, q string, n int) ([]models.KnowledgeHit, error) {
+func (s *knowledgeSearchStub) Search(_ context.Context, u uuid.UUID, scope models.ChatScope, q string, n int, filters ...models.KnowledgeFilter) ([]models.KnowledgeHit, error) {
 	s.user, s.scope, s.query, s.limit = u, scope, q, n
+	if len(filters) > 0 {
+		s.filter = filters[0]
+	}
 	s.calls++
 	if s.hits != nil {
 		return s.hits, nil
@@ -56,6 +61,55 @@ func TestKnowledgeToolPinsScope(t *testing.T) {
 		if !tool.ReadOnly() || !json.Valid(tool.Parameters()) {
 			t.Fatal("kontrak tool tidak valid")
 		}
+	}
+}
+
+func TestKnowledgeToolFiltersAndValidity(t *testing.T) {
+	stub := &knowledgeSearchStub{}
+	tool := &searchKnowledgeTool{repo: stub, user: uuid.New(), scope: models.ChatScope{Kind: models.ChatPlatformPersonal}}
+	if _, err := tool.Execute(context.Background(), json.RawMessage(`{"query":"cuti","filters":{"regulasi":"PER-2/2024","tahun":2024},"valid_at":"2026-06-15"}`)); err != nil {
+		t.Fatal(err)
+	}
+	if stub.filter.Attributes["regulasi"] != "PER-2/2024" || stub.filter.Attributes["tahun"] != float64(2024) {
+		t.Fatalf("filter = %+v", stub.filter.Attributes)
+	}
+	want := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+	if !stub.filter.ValidAt.Equal(want) {
+		t.Fatalf("valid_at = %v; want %v", stub.filter.ValidAt, want)
+	}
+	for _, bad := range []string{
+		`{"query":"q","valid_at":"15/06/2026"}`,
+		`{"query":"q","filters":{"obj":{"a":1}}}`,
+		`{"query":"q","filters":{"` + strings.Repeat("x", 101) + `":"v"}}`,
+	} {
+		if _, err := tool.Execute(context.Background(), json.RawMessage(bad)); err == nil {
+			t.Fatalf("argumen %s harus ditolak", bad)
+		}
+	}
+}
+
+func TestKnowledgeToolCarriesMetadataOnCitations(t *testing.T) {
+	doc := uuid.New()
+	stub := &knowledgeSearchStub{hits: []models.KnowledgeHit{{
+		DocumentID: doc, ChunkID: uuid.New(), Title: "PER-2/2024", Filename: "per2.pdf", Format: "pdf",
+		HeadingPath: "Pasal 12", Locator: "hal. 3", Position: 4, Content: "isi pasal",
+		Global: true, Score: 0.9, Attributes: json.RawMessage(`{"regulasi":"PER-2/2024","tahun":2024}`),
+		Version: "revisi-2",
+	}}}
+	tool := &searchKnowledgeTool{repo: stub, user: uuid.New(), scope: models.ChatScope{Kind: models.ChatPlatformPersonal}}
+	result, err := tool.Execute(context.Background(), json.RawMessage(`{"query":"pasal 12"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.References) != 1 {
+		t.Fatalf("references = %d", len(result.References))
+	}
+	ref := result.References[0]
+	if ref.Meta["regulasi"] != "PER-2/2024" || ref.Meta["tahun"] != float64(2024) || ref.Meta["version"] != "revisi-2" {
+		t.Fatalf("meta = %+v", ref.Meta)
+	}
+	if ref.DocumentID != doc || ref.Position != 4 || ref.HeadingPath != "Pasal 12" {
+		t.Fatalf("reference = %+v", ref)
 	}
 }
 

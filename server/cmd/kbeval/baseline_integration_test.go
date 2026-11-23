@@ -143,7 +143,7 @@ func TestDisposableRepositoryBaseline(t *testing.T) {
 	for _, branch := range []struct {
 		name   string
 		limit  int
-		search func(context.Context, uuid.UUID, models.ChatScope, string, int) ([]models.KnowledgeHit, error)
+		search func(context.Context, uuid.UUID, models.ChatScope, string, int, ...models.KnowledgeFilter) ([]models.KnowledgeHit, error)
 	}{{"bounded5", 5, repo.Search}, {"candidates50", 50, repo.SearchCandidates}} {
 		var latencies []time.Duration
 		for _, split := range []string{"dev", "heldout"} {

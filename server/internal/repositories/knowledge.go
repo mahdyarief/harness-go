@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -29,12 +31,12 @@ type KnowledgeRepository struct{ db *sql.DB }
 
 func NewKnowledgeRepository(db *sql.DB) *KnowledgeRepository { return &KnowledgeRepository{db: db} }
 
-const knowledgeColumns = `id,tenant_id,category_id,(SELECT name FROM knowledge_categories WHERE id = knowledge_documents.category_id),title,filename,format,size_bytes,char_count,chunk_count,uploaded_by,created_at,updated_at,extraction_metadata,status`
+const knowledgeColumns = `id,tenant_id,category_id,(SELECT name FROM knowledge_categories WHERE id = knowledge_documents.category_id),title,filename,format,size_bytes,char_count,chunk_count,uploaded_by,created_at,updated_at,extraction_metadata,attributes,valid_from,valid_to,version,status`
 
 // knowledgeListColumns adds the category label through a LEFT JOIN, so a
 // document without a category reports a NULL name instead of an inner join
 // silently dropping it.
-const knowledgeListColumns = `d.id,d.tenant_id,d.category_id,c.name,d.title,d.filename,d.format,d.size_bytes,d.char_count,d.chunk_count,d.uploaded_by,d.created_at,d.updated_at,d.extraction_metadata,d.status`
+const knowledgeListColumns = `d.id,d.tenant_id,d.category_id,c.name,d.title,d.filename,d.format,d.size_bytes,d.char_count,d.chunk_count,d.uploaded_by,d.created_at,d.updated_at,d.extraction_metadata,d.attributes,d.valid_from,d.valid_to,d.version,d.status`
 
 // KnowledgeInput menyimpan hasil ekstraksi. StorageKey unik per percobaan
 // unggah sehingga rollback tidak menghapus blob milik transaksi lain.
@@ -47,8 +49,14 @@ type KnowledgeInput struct {
 	StorageKey         string
 	CharCount          int
 	ExtractionMetadata json.RawMessage
-	CategoryID         *uuid.UUID
-	Status             string
+	// Attributes, ValidFrom, ValidTo, and Version are retrieval metadata:
+	// they narrow search and travel on every citation. They never gate access.
+	Attributes json.RawMessage
+	ValidFrom  *time.Time
+	ValidTo    *time.Time
+	Version    string
+	CategoryID *uuid.UUID
+	Status     string
 }
 
 // KnowledgeCategoryInput is the create payload for a category.
@@ -113,9 +121,10 @@ func (r *KnowledgeRepository) CheckWrite(ctx context.Context, actor uuid.UUID, t
 
 func scanKnowledgeDocument(row rowScanner) (models.KnowledgeDocument, error) {
 	var d models.KnowledgeDocument
-	var metadata []byte
-	err := row.Scan(&d.ID, &d.TenantID, &d.CategoryID, &d.CategoryName, &d.Title, &d.Filename, &d.Format, &d.SizeBytes, &d.CharCount, &d.ChunkCount, &d.UploadedBy, &d.CreatedAt, &d.UpdatedAt, &metadata, &d.Status)
+	var metadata, attributes []byte
+	err := row.Scan(&d.ID, &d.TenantID, &d.CategoryID, &d.CategoryName, &d.Title, &d.Filename, &d.Format, &d.SizeBytes, &d.CharCount, &d.ChunkCount, &d.UploadedBy, &d.CreatedAt, &d.UpdatedAt, &metadata, &attributes, &d.ValidFrom, &d.ValidTo, &d.Version, &d.Status)
 	d.ExtractionMetadata = metadata
+	d.Attributes = attributes
 	return d, err
 }
 
@@ -149,10 +158,13 @@ func (r *KnowledgeRepository) Create(ctx context.Context, actor uuid.UUID, tenan
 	if in.CategoryID != nil {
 		catID = in.CategoryID
 	}
+	if len(in.Attributes) == 0 {
+		in.Attributes = json.RawMessage(`{}`)
+	}
 	doc, err := scanKnowledgeDocument(tx.QueryRowContext(ctx,
-		`INSERT INTO knowledge_documents (tenant_id,category_id,title,filename,format,size_bytes,sha256,storage_key,char_count,chunk_count,uploaded_by,extraction_metadata,status)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING `+knowledgeColumns,
-		tenant, catID, in.Title, in.Filename, string(in.Format), in.SizeBytes, in.SHA256, in.StorageKey, in.CharCount, len(chunks), actor, in.ExtractionMetadata, knowledgeStatus(in.Status)))
+		`INSERT INTO knowledge_documents (tenant_id,category_id,title,filename,format,size_bytes,sha256,storage_key,char_count,chunk_count,uploaded_by,extraction_metadata,attributes,valid_from,valid_to,version,status)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING `+knowledgeColumns,
+		tenant, catID, in.Title, in.Filename, string(in.Format), in.SizeBytes, in.SHA256, in.StorageKey, in.CharCount, len(chunks), actor, in.ExtractionMetadata, in.Attributes, in.ValidFrom, in.ValidTo, in.Version, knowledgeStatus(in.Status)))
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -530,11 +542,15 @@ func slugifyCategory(name string) string {
 // session scope the chat transaction pins: a tenant chat sees its own library
 // plus the global one, a platform chat sees the global library only. Neither
 // the model nor the request can name a tenant.
-func (r *KnowledgeRepository) Search(ctx context.Context, user uuid.UUID, scope models.ChatScope, query string, limit int) ([]models.KnowledgeHit, error) {
+func (r *KnowledgeRepository) Search(ctx context.Context, user uuid.UUID, scope models.ChatScope, query string, limit int, filters ...models.KnowledgeFilter) ([]models.KnowledgeHit, error) {
 	if limit <= 0 || limit > kb.MaxPassages {
 		limit = kb.MaxPassages
 	}
-	hits, err := r.SearchCandidates(ctx, user, scope, query, kb.MaxBranchCandidates)
+	var filter models.KnowledgeFilter
+	if len(filters) > 0 {
+		filter = filters[0]
+	}
+	hits, err := r.SearchCandidates(ctx, user, scope, query, kb.MaxBranchCandidates, filter)
 	if err != nil {
 		return nil, err
 	}
@@ -560,7 +576,7 @@ func (r *KnowledgeRepository) Search(ctx context.Context, user uuid.UUID, scope 
 
 // SearchCandidates returns a bounded lexical shortlist in the server-proven
 // chat scope. It keeps websearch phrase/negation semantics without expansion.
-func (r *KnowledgeRepository) SearchCandidates(ctx context.Context, user uuid.UUID, scope models.ChatScope, query string, limit int) ([]models.KnowledgeHit, error) {
+func (r *KnowledgeRepository) SearchCandidates(ctx context.Context, user uuid.UUID, scope models.ChatScope, query string, limit int, filters ...models.KnowledgeFilter) ([]models.KnowledgeHit, error) {
 	if r == nil || r.db == nil {
 		return nil, apperr.ErrForbidden
 	}
@@ -569,44 +585,73 @@ func (r *KnowledgeRepository) SearchCandidates(ctx context.Context, user uuid.UU
 	} else if limit > kb.MaxBranchCandidates {
 		limit = kb.MaxBranchCandidates
 	}
+	var filter models.KnowledgeFilter
+	if len(filters) > 0 {
+		filter = filters[0]
+	}
+	var tenant *uuid.UUID
+	if !scope.Platform() {
+		tenant = &scope.TenantID
+	}
+	// Attribute keys are sorted so the generated SQL is stable for identical
+	// filters; values are passed as parameters, never inlined.
+	keys := make([]string, 0, len(filter.Attributes))
+	for key := range filter.Attributes {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	args := []any{query, limit, tenant}
+	var predicates []string
+	for _, key := range keys {
+		args = append(args, key, filter.Attributes[key])
+		predicates = append(predicates, fmt.Sprintf("d.attributes @> jsonb_build_object($%d::text, $%d::jsonb)", len(args)-1, len(args)))
+	}
+	if !filter.ValidAt.IsZero() {
+		args = append(args, filter.ValidAt)
+		predicates = append(predicates, fmt.Sprintf("coalesce(d.valid_from, '-infinity'::timestamptz) <= $%d AND coalesce(d.valid_to, 'infinity'::timestamptz) >= $%d", len(args), len(args)))
+	}
+	clause := ""
+	if len(predicates) > 0 {
+		clause = " AND " + strings.Join(predicates, " AND ")
+	}
 	tx, err := (&ChatRepository{db: r.db}).begin(ctx, user, scope)
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
 
-	var tenant *uuid.UUID
-	if !scope.Platform() {
-		tenant = &scope.TenantID
-	}
 	query = strings.Join(strings.Fields(query), " ")
 	rows, err := tx.QueryContext(ctx,
 		`WITH q AS (
 		     SELECT websearch_to_tsquery('indonesian'::regconfig, $1) AS query
 		 ), scoped AS (
 		     (SELECT c.id, c.position, c.document_id, d.title, d.filename, d.format, c.heading_path, c.locator, c.content,
+		             d.attributes, d.valid_from, d.valid_to, d.version,
 		             ts_rank_cd(c.search, q.query)::float8 AS score, true AS global
 		        FROM knowledge_chunks c JOIN knowledge_documents d ON d.id = c.document_id CROSS JOIN q
-		       WHERE c.search @@ q.query AND c.tenant_id IS NULL AND d.tenant_id IS NULL AND d.status='published'
+		       WHERE c.search @@ q.query AND c.tenant_id IS NULL AND d.tenant_id IS NULL AND d.status='published'`+clause+`
 		       ORDER BY score DESC, c.document_id, c.position, c.id LIMIT $2)
 		     UNION ALL
 		     (SELECT c.id, c.position, c.document_id, d.title, d.filename, d.format, c.heading_path, c.locator, c.content,
+		             d.attributes, d.valid_from, d.valid_to, d.version,
 		             ts_rank_cd(c.search, q.query)::float8 AS score, false AS global
 		        FROM knowledge_chunks c JOIN knowledge_documents d ON d.id = c.document_id CROSS JOIN q
-		       WHERE c.search @@ q.query AND c.tenant_id = $3::uuid AND d.tenant_id = $3::uuid AND d.status='published'
+		       WHERE c.search @@ q.query AND c.tenant_id = $3::uuid AND d.tenant_id = $3::uuid AND d.status='published'`+clause+`
 		       ORDER BY score DESC, c.document_id, c.position, c.id LIMIT $2)
-		 ) SELECT * FROM scoped ORDER BY score DESC, document_id, position, id LIMIT $2`, query, limit, tenant)
+		 ) SELECT * FROM scoped ORDER BY score DESC, document_id, position, id LIMIT $2`, args...)
 	if err != nil {
 		return nil, err
 	}
 	hits, err := collectRows(rows, func(row rowScanner) (models.KnowledgeHit, error) {
 		var h models.KnowledgeHit
-		err := row.Scan(&h.ChunkID, &h.Position, &h.DocumentID, &h.Title, &h.Filename, &h.Format, &h.HeadingPath, &h.Locator, &h.Content, &h.Score, &h.Global)
+		var attributes []byte
+		err := row.Scan(&h.ChunkID, &h.Position, &h.DocumentID, &h.Title, &h.Filename, &h.Format, &h.HeadingPath, &h.Locator, &h.Content, &attributes, &h.ValidFrom, &h.ValidTo, &h.Version, &h.Score, &h.Global)
 		if err != nil {
 			return h, err
 		}
 		digest := sha256.Sum256([]byte(h.Content))
 		h.ContentHash = hex.EncodeToString(digest[:])
+		h.Attributes = attributes
 		return h, nil
 	})
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -112,6 +113,43 @@ func TestKnowledgeSemanticCandidatesDatabase(t *testing.T) {
 	}
 	if len(lexical) != 0 || len(semantic) != 0 {
 		t.Fatalf("tenant scope leaked rows: lexical=%d semantic=%d", len(lexical), len(semantic))
+	}
+
+	// Attribute and validity filters narrow the platform branch: a mismatched
+	// attribute, an out-of-window date, and a passing combination are three
+	// different answers for the same query.
+	mustExec(t, root, `UPDATE knowledge_documents SET attributes=$2, valid_from=DATE '2026-01-01', valid_to=DATE '2026-12-31', version='v2' WHERE id=$1`, docID, `{"regulasi":"PER-2/2024"}`)
+	t.Cleanup(func() {
+		root.Exec(`UPDATE knowledge_documents SET attributes='{}', valid_from=NULL, valid_to=NULL, version='' WHERE id=$1`, docID)
+	})
+	matching := models.KnowledgeFilter{Attributes: map[string]any{"regulasi": "PER-2/2024"}, ValidAt: time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)}
+	lexical, _, err = repo.Candidates(ctx, platformUser, platform, "verifikasi prosedur hybrid retrieval pgvector cosine similarity", profileID, vector, matching)
+	if err != nil {
+		t.Fatalf("filtered candidates: %v", err)
+	}
+	if findHit(lexical, chunkID) == nil {
+		t.Fatalf("matching filter dropped the fixture chunk in %d hits", len(lexical))
+	}
+	if lexicalHit := findHit(lexical, chunkID); lexicalHit != nil && lexicalHit.Version != "v2" {
+		t.Fatalf("hit version = %q; want v2", lexicalHit.Version)
+	}
+	wrong := models.KnowledgeFilter{Attributes: map[string]any{"regulasi": "PER-8/2031"}}
+	var wrongLexical []models.KnowledgeHit
+	wrongLexical, _, err = repo.Candidates(ctx, platformUser, platform, "verifikasi prosedur hybrid retrieval pgvector cosine similarity", profileID, vector, wrong)
+	if err != nil {
+		t.Fatalf("mismatched filter: %v", err)
+	}
+	if findHit(wrongLexical, chunkID) != nil {
+		t.Fatal("a mismatched attribute filter returned the fixture chunk")
+	}
+	expired := models.KnowledgeFilter{ValidAt: time.Date(2027, 6, 15, 0, 0, 0, 0, time.UTC)}
+	var expiredLexical []models.KnowledgeHit
+	expiredLexical, _, err = repo.Candidates(ctx, platformUser, platform, "verifikasi prosedur hybrid retrieval pgvector cosine similarity", profileID, vector, expired)
+	if err != nil {
+		t.Fatalf("expired filter: %v", err)
+	}
+	if findHit(expiredLexical, chunkID) != nil {
+		t.Fatal("a date outside the validity window returned the fixture chunk")
 	}
 }
 

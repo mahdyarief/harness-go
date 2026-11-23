@@ -24,7 +24,7 @@ func TestHybridCandidateSQLGatesDraft(t *testing.T) {
 		if tenant {
 			want = 4
 		}
-		if got := strings.Count(hybridCandidateSQL(tenant), "d.status='published'"); got != want {
+		if got := strings.Count(hybridCandidateSQL(tenant, ""), "d.status='published'"); got != want {
 			t.Errorf("hybridCandidateSQL(tenant=%v): %d status gates, want %d", tenant, got, want)
 		}
 	}

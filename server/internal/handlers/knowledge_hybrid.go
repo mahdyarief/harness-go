@@ -26,7 +26,7 @@ type hybridSearcher struct {
 	allowPrivate bool
 }
 
-func (s *hybridSearcher) Search(ctx context.Context, user uuid.UUID, scope models.ChatScope, query string, limit int) ([]models.KnowledgeHit, error) {
+func (s *hybridSearcher) Search(ctx context.Context, user uuid.UUID, scope models.ChatScope, query string, limit int, filters ...models.KnowledgeFilter) ([]models.KnowledgeHit, error) {
 	if s == nil || s.repo == nil {
 		return nil, nil
 	}
@@ -69,7 +69,11 @@ func (s *hybridSearcher) Search(ctx context.Context, user uuid.UUID, scope model
 	if len(vectors) != 1 {
 		return nil, errors.New("embedding service returned no vector")
 	}
-	lexical, semantic, err := s.repo.Candidates(ctx, user, scope, query, profileID, vectors[0])
+	var filter models.KnowledgeFilter
+	if len(filters) > 0 {
+		filter = filters[0]
+	}
+	lexical, semantic, err := s.repo.Candidates(ctx, user, scope, query, profileID, vectors[0], filter)
 	if err != nil {
 		return nil, err
 	}
