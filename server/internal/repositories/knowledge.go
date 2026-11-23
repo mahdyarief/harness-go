@@ -174,13 +174,16 @@ func (r *KnowledgeRepository) Create(ctx context.Context, actor uuid.UUID, tenan
 	}
 
 	stmt, err := tx.PrepareContext(ctx,
-		`INSERT INTO knowledge_chunks (document_id,tenant_id,position,heading_path,locator,content) VALUES ($1,$2,$3,$4,$5,$6)`)
+		`INSERT INTO knowledge_chunks (document_id,tenant_id,position,heading_path,locator,content,attributes,valid_from,valid_to,version)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`)
 	if err != nil {
 		return models.KnowledgeDocument{}, err
 	}
 	defer stmt.Close()
 	for _, c := range chunks {
-		if _, err = stmt.ExecContext(ctx, doc.ID, tenant, c.Position, c.HeadingPath, c.Locator, c.Content); err != nil {
+		// Chunks inherit the document's retrieval metadata so a passage can be
+		// filtered and cited without joining the document row.
+		if _, err = stmt.ExecContext(ctx, doc.ID, tenant, c.Position, c.HeadingPath, c.Locator, c.Content, in.Attributes, in.ValidFrom, in.ValidTo, in.Version); err != nil {
 			return models.KnowledgeDocument{}, fmt.Errorf("insert knowledge chunk %d: %w", c.Position, err)
 		}
 	}
@@ -353,6 +356,73 @@ func (r *KnowledgeRepository) SetCategory(ctx context.Context, actor uuid.UUID, 
 		 RETURNING `+knowledgeColumns, catID, id, tenant))
 	if err != nil {
 		return models.KnowledgeDocument{}, translateNotFound("knowledge document", err)
+	}
+	return doc, tx.Commit()
+}
+
+// KnowledgeMetadataInput updates the retrieval metadata of one document.
+// Nil fields are left untouched; SetWindow replaces both validity bounds at
+// once so callers can clear the window with two nil dates.
+type KnowledgeMetadataInput struct {
+	Attributes json.RawMessage
+	SetWindow  bool
+	ValidFrom  *time.Time
+	ValidTo    *time.Time
+	Version    *string
+}
+
+// SetMetadata writes document metadata and copies it to the document's chunks,
+// keeping chunk-level filters consistent with the document they came from.
+func (r *KnowledgeRepository) SetMetadata(ctx context.Context, actor uuid.UUID, tenant *uuid.UUID, id uuid.UUID, in KnowledgeMetadataInput) (models.KnowledgeDocument, error) {
+	tx, role, err := r.begin(ctx, actor, tenant, true)
+	if err != nil {
+		return models.KnowledgeDocument{}, err
+	}
+	defer tx.Rollback()
+
+	var sets []string
+	var chunkSets []string
+	args := []any{}
+	add := func(expr string, value any) string {
+		args = append(args, value)
+		return fmt.Sprintf(expr, len(args))
+	}
+	if in.Attributes != nil {
+		clause := add("attributes=$%d::jsonb", in.Attributes)
+		sets = append(sets, clause)
+		chunkSets = append(chunkSets, clause)
+	}
+	if in.SetWindow {
+		sets = append(sets, add("valid_from=$%d", in.ValidFrom), add("valid_to=$%d", in.ValidTo))
+		chunkSets = append(chunkSets, add("valid_from=$%d", in.ValidFrom), add("valid_to=$%d", in.ValidTo))
+	}
+	if in.Version != nil {
+		clause := add("version=$%d", *in.Version)
+		sets = append(sets, clause)
+		chunkSets = append(chunkSets, clause)
+	}
+	if len(sets) == 0 {
+		return models.KnowledgeDocument{}, apperr.New(apperr.KindBadRequest, "Tidak ada metadata yang diubah")
+	}
+	sets = append(sets, "updated_at=now()")
+	args = append(args, id, tenant)
+
+	doc, err := scanKnowledgeDocument(tx.QueryRowContext(ctx,
+		`UPDATE knowledge_documents SET `+strings.Join(sets, ", ")+`
+		 WHERE id=$`+fmt.Sprint(len(args)-1)+` AND tenant_id IS NOT DISTINCT FROM $`+fmt.Sprint(len(args))+`::uuid
+		 RETURNING `+knowledgeColumns, args...))
+	if err != nil {
+		return models.KnowledgeDocument{}, translateNotFound("knowledge document", err)
+	}
+	if len(chunkSets) > 0 {
+		chunkArgs := append(append([]any{}, args[:len(args)-2]...), id)
+		if _, err = tx.ExecContext(ctx,
+			`UPDATE knowledge_chunks SET `+strings.Join(chunkSets, ", ")+` WHERE document_id=$`+fmt.Sprint(len(chunkArgs)), chunkArgs...); err != nil {
+			return models.KnowledgeDocument{}, err
+		}
+	}
+	if err = auditAppend(ctx, tx, actor, role, ActionKnowledgeMetadata, "knowledge_document", &doc.ID, tenant, nil); err != nil {
+		return models.KnowledgeDocument{}, err
 	}
 	return doc, tx.Commit()
 }
@@ -607,8 +677,10 @@ func (r *KnowledgeRepository) SearchCandidates(ctx context.Context, user uuid.UU
 		predicates = append(predicates, fmt.Sprintf("d.attributes @> jsonb_build_object($%d::text, $%d::jsonb)", len(args)-1, len(args)))
 	}
 	if !filter.ValidAt.IsZero() {
-		args = append(args, filter.ValidAt)
-		predicates = append(predicates, fmt.Sprintf("coalesce(d.valid_from, '-infinity'::timestamptz) <= $%d AND coalesce(d.valid_to, 'infinity'::timestamptz) >= $%d", len(args), len(args)))
+		// The window columns are DATE; compare as dates so the result does not
+		// depend on the server timezone.
+		args = append(args, filter.ValidAt.Format("2006-01-02"))
+		predicates = append(predicates, fmt.Sprintf("coalesce(d.valid_from, '-infinity'::date) <= $%d::date AND coalesce(d.valid_to, 'infinity'::date) >= $%d::date", len(args), len(args)))
 	}
 	clause := ""
 	if len(predicates) > 0 {

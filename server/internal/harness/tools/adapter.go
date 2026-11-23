@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"encoding/json"
+	"strconv"
 
 	"hsg/internal/harness/services"
 	"hsg/internal/lib/agent"
@@ -57,10 +58,45 @@ func (t *adaptedTool) Execute(ctx context.Context, args json.RawMessage) (servic
 			Position:    ref.Position,
 			Excerpt:     ref.Excerpt,
 			Source:      ref.Source,
+			Meta:        referenceMeta(ref.Meta),
 		}
 		out.References = append(out.References, svcRef)
 		// Every KB passage is DOCUMENT evidence with no data lost.
 		out.Evidence = append(out.Evidence, services.DocumentItem(svcRef))
 	}
 	return out, nil
+}
+
+// referenceMeta flattens the tool's citation metadata into the string map the
+// evidence layer stores. Scalars keep their text form; objects and arrays are
+// compact JSON so no attribute is silently lost.
+func referenceMeta(meta map[string]any) map[string]string {
+	if len(meta) == 0 {
+		return nil
+	}
+	out := make(map[string]string, len(meta))
+	for key, value := range meta {
+		switch v := value.(type) {
+		case nil:
+			continue
+		case string:
+			if v != "" {
+				out[key] = v
+			}
+		case bool:
+			out[key] = strconv.FormatBool(v)
+		case float64:
+			out[key] = strconv.FormatFloat(v, 'g', -1, 64)
+		case json.Number:
+			out[key] = v.String()
+		default:
+			if encoded, err := json.Marshal(v); err == nil {
+				out[key] = string(encoded)
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }

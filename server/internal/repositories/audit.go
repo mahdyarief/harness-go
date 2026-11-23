@@ -31,6 +31,7 @@ const (
 	ActionKnowledgeDeleted     = "knowledge.deleted"
 	ActionKnowledgePublished   = "knowledge.published"
 	ActionKnowledgeUnpublished = "knowledge.unpublished"
+	ActionKnowledgeMetadata    = "knowledge.metadata_updated"
 )
 
 // AuditRepository reads and appends the audit trail. Every write is an INSERT:

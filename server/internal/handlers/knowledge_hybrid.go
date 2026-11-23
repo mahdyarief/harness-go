@@ -142,8 +142,14 @@ func toCandidates(hits []models.KnowledgeHit) []kb.Candidate {
 			Title:       h.Title,
 			HeadingPath: h.HeadingPath,
 			Locator:     h.Locator,
+			Filename:    h.Filename,
+			Format:      h.Format,
 			Content:     h.Content,
 			ContentHash: h.ContentHash,
+			Attributes:  h.Attributes,
+			ValidFrom:   h.ValidFrom,
+			ValidTo:     h.ValidTo,
+			Version:     h.Version,
 			Global:      h.Global,
 		}
 	}
@@ -156,10 +162,16 @@ func fromCandidates(candidates []kb.Candidate) []models.KnowledgeHit {
 		hit := models.KnowledgeHit{
 			Position:    c.Position,
 			Title:       c.Title,
+			Filename:    c.Filename,
+			Format:      c.Format,
 			HeadingPath: c.HeadingPath,
 			Locator:     c.Locator,
 			Content:     c.Content,
 			ContentHash: c.ContentHash,
+			Attributes:  c.Attributes,
+			ValidFrom:   c.ValidFrom,
+			ValidTo:     c.ValidTo,
+			Version:     c.Version,
 			Global:      c.Global,
 		}
 		if id, err := uuid.Parse(c.ChunkID); err == nil {

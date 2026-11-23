@@ -132,8 +132,10 @@ func (r *KnowledgeSemanticRepository) Candidates(ctx context.Context, user uuid.
 		predicates = append(predicates, fmt.Sprintf("d.attributes @> jsonb_build_object($%d::text, $%d::jsonb)", len(args)-1, len(args)))
 	}
 	if !filter.ValidAt.IsZero() {
-		args = append(args, filter.ValidAt)
-		predicates = append(predicates, fmt.Sprintf("coalesce(d.valid_from, '-infinity'::timestamptz) <= $%d AND coalesce(d.valid_to, 'infinity'::timestamptz) >= $%d", len(args), len(args)))
+		// The window columns are DATE; compare as dates so the result does not
+		// depend on the server timezone.
+		args = append(args, filter.ValidAt.Format("2006-01-02"))
+		predicates = append(predicates, fmt.Sprintf("coalesce(d.valid_from, '-infinity'::date) <= $%d::date AND coalesce(d.valid_to, 'infinity'::date) >= $%d::date", len(args), len(args)))
 	}
 	clause := ""
 	if len(predicates) > 0 {

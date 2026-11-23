@@ -39,12 +39,6 @@ type KnowledgeFilter struct {
 	ValidAt    time.Time
 }
 
-// Empty reports whether the filter constrains nothing, so the unfiltered SQL
-// path stays byte-identical to the pre-filter query plan.
-func (f KnowledgeFilter) Empty() bool {
-	return len(f.Attributes) == 0 && f.ValidAt.IsZero()
-}
-
 // KnowledgeCategory groups documents inside one library. TenantID nil means the
 // global category managed by a super_user; otherwise it belongs to that tenant.
 type KnowledgeCategory struct {

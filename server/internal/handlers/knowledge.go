@@ -161,10 +161,17 @@ func (h *KnowledgeHandler) Upload(c fiber.Ctx) error {
 		h.removeBlob(context.WithoutCancel(c.Context()), key)
 		return err
 	}
+	retrieval, err := parseKnowledgeMetadataForm(func(key string) string { return c.FormValue(key) })
+	if err != nil {
+		h.removeBlob(context.WithoutCancel(c.Context()), key)
+		return err
+	}
 	doc, err := h.repo.Create(ctx, uid, tenant, repositories.KnowledgeInput{
 		Title: title, Filename: filename, Format: format, SizeBytes: int64(len(data)),
 		SHA256: digest, StorageKey: key, CharCount: chars, ExtractionMetadata: metadata,
 		CategoryID: categoryID, Status: "draft",
+		Attributes: retrieval.Attributes, ValidFrom: retrieval.ValidFrom, ValidTo: retrieval.ValidTo,
+		Version: retrieval.Version,
 	}, chunks)
 	if err != nil {
 		if !errors.Is(err, repositories.ErrKnowledgeCommitUnknown) {

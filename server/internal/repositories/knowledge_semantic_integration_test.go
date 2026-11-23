@@ -123,32 +123,38 @@ func TestKnowledgeSemanticCandidatesDatabase(t *testing.T) {
 		root.Exec(`UPDATE knowledge_documents SET attributes='{}', valid_from=NULL, valid_to=NULL, version='' WHERE id=$1`, docID)
 	})
 	matching := models.KnowledgeFilter{Attributes: map[string]any{"regulasi": "PER-2/2024"}, ValidAt: time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)}
-	lexical, _, err = repo.Candidates(ctx, platformUser, platform, "verifikasi prosedur hybrid retrieval pgvector cosine similarity", profileID, vector, matching)
+	lexical, semantic, err = repo.Candidates(ctx, platformUser, platform, "verifikasi prosedur hybrid retrieval pgvector cosine similarity", profileID, vector, matching)
 	if err != nil {
 		t.Fatalf("filtered candidates: %v", err)
 	}
 	if findHit(lexical, chunkID) == nil {
-		t.Fatalf("matching filter dropped the fixture chunk in %d hits", len(lexical))
+		t.Fatalf("matching filter dropped the fixture chunk in %d lexical hits", len(lexical))
+	}
+	if findHit(semantic, chunkID) == nil {
+		t.Fatalf("matching filter dropped the fixture chunk in %d semantic hits", len(semantic))
 	}
 	if lexicalHit := findHit(lexical, chunkID); lexicalHit != nil && lexicalHit.Version != "v2" {
-		t.Fatalf("hit version = %q; want v2", lexicalHit.Version)
+		t.Fatalf("lexical hit version = %q; want v2", lexicalHit.Version)
+	}
+	if semanticHit := findHit(semantic, chunkID); semanticHit != nil && semanticHit.Version != "v2" {
+		t.Fatalf("semantic hit version = %q; want v2", semanticHit.Version)
 	}
 	wrong := models.KnowledgeFilter{Attributes: map[string]any{"regulasi": "PER-8/2031"}}
-	var wrongLexical []models.KnowledgeHit
-	wrongLexical, _, err = repo.Candidates(ctx, platformUser, platform, "verifikasi prosedur hybrid retrieval pgvector cosine similarity", profileID, vector, wrong)
+	var wrongLexical, wrongSemantic []models.KnowledgeHit
+	wrongLexical, wrongSemantic, err = repo.Candidates(ctx, platformUser, platform, "verifikasi prosedur hybrid retrieval pgvector cosine similarity", profileID, vector, wrong)
 	if err != nil {
 		t.Fatalf("mismatched filter: %v", err)
 	}
-	if findHit(wrongLexical, chunkID) != nil {
-		t.Fatal("a mismatched attribute filter returned the fixture chunk")
+	if findHit(wrongLexical, chunkID) != nil || findHit(wrongSemantic, chunkID) != nil {
+		t.Fatal("a mismatched attribute filter returned the fixture chunk on a branch")
 	}
 	expired := models.KnowledgeFilter{ValidAt: time.Date(2027, 6, 15, 0, 0, 0, 0, time.UTC)}
-	var expiredLexical []models.KnowledgeHit
-	expiredLexical, _, err = repo.Candidates(ctx, platformUser, platform, "verifikasi prosedur hybrid retrieval pgvector cosine similarity", profileID, vector, expired)
+	var expiredLexical, expiredSemantic []models.KnowledgeHit
+	expiredLexical, expiredSemantic, err = repo.Candidates(ctx, platformUser, platform, "verifikasi prosedur hybrid retrieval pgvector cosine similarity", profileID, vector, expired)
 	if err != nil {
 		t.Fatalf("expired filter: %v", err)
 	}
-	if findHit(expiredLexical, chunkID) != nil {
+	if findHit(expiredLexical, chunkID) != nil || findHit(expiredSemantic, chunkID) != nil {
 		t.Fatal("a date outside the validity window returned the fixture chunk")
 	}
 }

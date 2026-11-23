@@ -2,10 +2,12 @@ package kb
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
 	"strings"
+	"time"
 )
 
 const (
@@ -22,10 +24,18 @@ type Candidate struct {
 	// carried through fusion so a citation can point at the exact passage.
 	Position                    int
 	Title, HeadingPath, Locator string
+	Filename, Format            string
 	Content, ContentHash        string
-	Global                      bool
-	LexicalRank, SemanticRank   int
-	Score                       float64
+	// Attributes and the validity window travel through fusion so a citation
+	// keeps the document metadata even when the passage came from the semantic
+	// branch.
+	Attributes                json.RawMessage
+	ValidFrom                 *time.Time
+	ValidTo                   *time.Time
+	Version                   string
+	Global                    bool
+	LexicalRank, SemanticRank int
+	Score                     float64
 }
 
 func candidateKey(c Candidate) string {

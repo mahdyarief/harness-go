@@ -32,10 +32,12 @@ func registerKnowledgeRoutes(v1 fiber.Router, a *app.Application, h *handlers.Kn
 	v1.Delete("/platform/knowledge/categories/:id", m.Authorization, m.SuperUser, h.DeleteCategory)
 	v1.Patch("/platform/knowledge/:id/category", m.Authorization, m.SuperUser, h.SetCategory)
 	v1.Patch("/platform/knowledge/:id/status", m.Authorization, m.SuperUser, h.SetStatus)
+	v1.Patch("/platform/knowledge/:id/metadata", m.Authorization, m.SuperUser, h.SetMetadata)
 	v1.Get("/tenants/:tenant_id/knowledge/categories", m.Authorization, h.ListCategories)
 	v1.Post("/tenants/:tenant_id/knowledge/categories", m.Authorization, h.CreateCategory)
 	v1.Patch("/tenants/:tenant_id/knowledge/categories/:id", m.Authorization, h.RenameCategory)
 	v1.Delete("/tenants/:tenant_id/knowledge/categories/:id", m.Authorization, h.DeleteCategory)
 	v1.Patch("/tenants/:tenant_id/knowledge/:id/category", m.Authorization, h.SetCategory)
 	v1.Patch("/tenants/:tenant_id/knowledge/:id/status", m.Authorization, h.SetStatus)
+	v1.Patch("/tenants/:tenant_id/knowledge/:id/metadata", m.Authorization, h.SetMetadata)
 }

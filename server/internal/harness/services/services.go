@@ -145,46 +145,50 @@ type Outcome struct {
 // LoopConfig bounds one loop run. Zero values are normalized by the loop so a
 // caller cannot accidentally run without limits.
 type LoopConfig struct {
-	MaxTurns                int
-	MaxToolCalls            int
-	MaxDuration             time.Duration
-	MaxTotalTokens          int
-	ToolResultBytes         int
-	MaxToolResultBytes      int
-	MaxToolConcurrency      int
-	ToolTimeout             time.Duration
-	ContextTokenCap         int
-	KeepLastMessages        int
-	MaxRetries              int
-	MaxContinuationNudges   int
-	MaxPartialContinuations int
-	ForceToolCall           string
-	ReminderThresholds      []int
-	ReminderPreviewChars    int
-	ReminderInclude         []string
-	ReminderExclude         []string
-	LoopGuards              []LoopGuard
+	MaxTurns                int           `yaml:"max_turns"`
+	MaxToolCalls            int           `yaml:"max_tool_calls"`
+	MaxDuration             time.Duration `yaml:"max_duration"`
+	MaxTotalTokens          int           `yaml:"max_total_tokens"`
+	ToolResultBytes         int           `yaml:"tool_result_bytes"`
+	MaxToolResultBytes      int           `yaml:"max_tool_result_bytes"`
+	MaxToolConcurrency      int           `yaml:"max_tool_concurrency"`
+	ToolTimeout             time.Duration `yaml:"tool_timeout"`
+	ContextTokenCap         int           `yaml:"context_token_cap"`
+	KeepLastMessages        int           `yaml:"keep_last_messages"`
+	MaxRetries              int           `yaml:"max_retries"`
+	MaxContinuationNudges   int           `yaml:"max_continuation_nudges"`
+	MaxPartialContinuations int           `yaml:"max_partial_continuations"`
+	ForceToolCall           string        `yaml:"force_tool_call"`
+	ReminderThresholds      []int         `yaml:"reminder_thresholds"`
+	ReminderPreviewChars    int           `yaml:"reminder_preview_chars"`
+	ReminderInclude         []string      `yaml:"reminder_include"`
+	ReminderExclude         []string      `yaml:"reminder_exclude"`
+	LoopGuards              []LoopGuard   `yaml:"-"`
 	// RequireStructured names the tool the model must submit. Empty keeps the
 	// legacy behaviour of ending on a text answer.
-	RequireStructured    string
-	MaxStructuredRepairs int
+	RequireStructured    string `yaml:"require_structured"`
+	MaxStructuredRepairs int    `yaml:"max_structured_repairs"`
 	// EvidenceRegistry lists the evidence kinds tools may produce. When set,
 	// a structured submission citing a ref no tool returned is rejected with
 	// EVIDENCE_UNGROUNDED and fed back as a repair.
-	EvidenceRegistry *evidence.Registry
+	EvidenceRegistry *evidence.Registry `yaml:"-"`
 	// EvidencePath is the dotted path inside the structured submission that
 	// holds the citations, e.g. "evidence" or "result.evidence". Empty
 	// searches the whole submission.
-	EvidencePath string
+	EvidencePath string `yaml:"evidence_path"`
 	// Temperature and Seed pin sampling when set. Nil keeps the provider
 	// default, which is what a profile that never mentions them expects.
 	Temperature *float64 `yaml:"temperature"`
 	Seed        *int     `yaml:"seed"`
+	// ApprovalMode "wait" blocks an allowed escalation until a human answers,
+	// bounded by ApprovalTimeout. Empty keeps the legacy fail-closed behaviour.
+	ApprovalMode    string        `yaml:"approval_mode"`
+	ApprovalTimeout time.Duration `yaml:"approval_timeout"`
 }
 
 type ResultSpec struct {
-	Name   string
-	Schema json.RawMessage
+	Name   string          `yaml:"name"`
+	Schema json.RawMessage `yaml:"schema"`
 }
 
 type Agent interface {
@@ -206,6 +210,9 @@ type Reference struct {
 	Position    int    `json:"position"`
 	Excerpt     string `json:"excerpt"`
 	Source      string `json:"source,omitempty"`
+	// Meta carries provenance that must survive into evidence.Item.Meta:
+	// knowledge attributes (as a compact JSON string) and document version.
+	Meta map[string]string `json:"meta,omitempty"`
 }
 
 type ToolResult struct {
@@ -234,6 +241,11 @@ func DocumentItem(ref Reference) evidence.Item {
 	}
 	if ref.Source != "" {
 		meta["source"] = ref.Source
+	}
+	for key, value := range ref.Meta {
+		if value != "" {
+			meta[key] = value
+		}
 	}
 	chunk := ref.ChunkID
 	if chunk == "" {
@@ -276,6 +288,7 @@ type RunRecord struct {
 	ProfileName      string
 	ProfileHash      string
 	Model            string
+	ModelVersion     string
 	ConfigHash       string
 	Status           string
 	PromptTokens     int
