@@ -187,3 +187,27 @@ func TestSinkStripsPromptTextByDefault(t *testing.T) {
 		t.Fatalf("opt-in prompt missing: %q", logged.Prompt)
 	}
 }
+
+func TestProjectionSumsPricedModelCalls(t *testing.T) {
+	price := 0.25
+	events := []services.RunLogEvent{
+		runlog.NewModelCallEvent("run-cost", "a", runlog.ModelCall{Model: "m", PromptTokens: 10, CostUSD: &price}, runlog.LogPrompts{}),
+		runlog.NewModelCallEvent("run-cost", "b", runlog.ModelCall{Model: "x", PromptTokens: 3}, runlog.LogPrompts{}),
+	}
+	projection := runlog.Project(events)
+	if !projection.CostKnown || projection.CostUSD != price {
+		t.Fatalf("projection cost = %v (known %v); want %v", projection.CostUSD, projection.CostKnown, price)
+	}
+	for _, member := range projection.Members {
+		switch member.Name {
+		case "a":
+			if !member.CostKnown || member.CostUSD != price {
+				t.Fatalf("member a cost = %v (known %v)", member.CostUSD, member.CostKnown)
+			}
+		case "b":
+			if member.CostKnown {
+				t.Fatalf("unpriced member b reported a cost")
+			}
+		}
+	}
+}

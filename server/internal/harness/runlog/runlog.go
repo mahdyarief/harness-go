@@ -39,10 +39,13 @@ type ModelCall struct {
 	Model            string `json:"model,omitempty"`
 	PromptTokens     int    `json:"prompt_tokens"`
 	CompletionTokens int    `json:"completion_tokens"`
-	FinishReason     string `json:"finish_reason,omitempty"`
-	LatencyMs        int    `json:"latency_ms"`
-	RequestHash      string `json:"request_hash"`
-	Prompt           string `json:"prompt,omitempty"`
+	// CostUSD is set when the producer priced this call. It is a pointer so an
+	// unpriced call is absent rather than a misleading zero.
+	CostUSD      *float64 `json:"cost_usd,omitempty"`
+	FinishReason string   `json:"finish_reason,omitempty"`
+	LatencyMs    int      `json:"latency_ms"`
+	RequestHash  string   `json:"request_hash"`
+	Prompt       string   `json:"prompt,omitempty"`
 }
 
 // ToolCall is the payload of a tool/call event.
@@ -137,13 +140,14 @@ func translate(event services.AIEvent, prompts LogPrompts) (services.RunLogEvent
 		if typeName == EventTypeModelCall && !prompts.Enabled {
 			// Drop prompt text so the default log stays safe.
 			strip := struct {
-				Model            string `json:"model,omitempty"`
-				PromptTokens     int    `json:"prompt_tokens"`
-				CompletionTokens int    `json:"completion_tokens"`
-				FinishReason     string `json:"finish_reason,omitempty"`
-				LatencyMs        int    `json:"latency_ms"`
-				RequestHash      string `json:"request_hash"`
-				Prompt           string `json:"prompt,omitempty"`
+				Model            string   `json:"model,omitempty"`
+				PromptTokens     int      `json:"prompt_tokens"`
+				CompletionTokens int      `json:"completion_tokens"`
+				CostUSD          *float64 `json:"cost_usd,omitempty"`
+				FinishReason     string   `json:"finish_reason,omitempty"`
+				LatencyMs        int      `json:"latency_ms"`
+				RequestHash      string   `json:"request_hash"`
+				Prompt           string   `json:"prompt,omitempty"`
 			}{}
 			_ = json.Unmarshal(event.Payload, &strip)
 			strip.Prompt = ""

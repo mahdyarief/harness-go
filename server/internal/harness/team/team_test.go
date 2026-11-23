@@ -3,9 +3,11 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 	"time"
 
+	"hsg/internal/harness/cost"
 	"hsg/internal/harness/profile"
 	"hsg/internal/harness/scope"
 	"hsg/internal/harness/services"
@@ -157,6 +159,108 @@ func TestRunForwardsAgentAndParentCancellation(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("parent cancellation did not stop members")
+	}
+}
+
+// usageLLM bills a fixed token count on every call and then submits, so a
+// member's Outcome carries exactly those tokens.
+func usageLLM(prompt, completion int) *memberLLM {
+	return &memberLLM{fn: func(context.Context, []ai.Message, ai.ChatOptions, func(ai.StreamDelta) error) (ai.ChatResult, error) {
+		return ai.ChatResult{
+			PromptTokens: prompt, CompletionTokens: completion,
+			ToolCalls: []ai.ToolCall{{ID: "submit", Type: "function", Function: ai.ToolCallFunction{Name: "submit", Arguments: `{"value":"ok"}`}}},
+		}, nil
+	}}
+}
+
+func priceTable(t *testing.T) *cost.Table {
+	t.Helper()
+	table, err := cost.NewTable("2026-02-01", map[string]cost.Rates{
+		"murah": {InputPerMillion: 2, OutputPerMillion: 8},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return &table
+}
+
+func closeEnough(a, b float64) bool {
+	diff := a - b
+	if diff < 0 {
+		diff = -diff
+	}
+	return diff < 1e-9
+}
+
+func TestRunAccountsCostPerMemberAndTotal(t *testing.T) {
+	parent := teamParent(t, usageLLM(1000, 500))
+	members := []Member{
+		{Model: "murah", Profile: profileFor("a")},
+		{Model: "murah", Profile: profileFor("b")},
+		{Model: "murah", Profile: profileFor("c")},
+	}
+	got, err := Run(context.Background(), parent, members, Config{MaxParallel: 2, MemberTimeout: time.Second, Cost: priceTable(t)}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Warnings) != 0 {
+		t.Fatalf("warnings = %v", got.Warnings)
+	}
+	// 1000 prompt at $2/1M plus 500 completion at $8/1M.
+	wantPerMember := 1000.0/1e6*2 + 500.0/1e6*8
+	var sum float64
+	for i, member := range got.Members {
+		if member.CostUSD == nil {
+			t.Fatalf("member %d cost is nil", i)
+		}
+		if !closeEnough(*member.CostUSD, wantPerMember) {
+			t.Fatalf("member %d cost = %v; want %v", i, *member.CostUSD, wantPerMember)
+		}
+		sum += *member.CostUSD
+	}
+	if got.CostUSD == nil || !closeEnough(*got.CostUSD, sum) {
+		t.Fatalf("total cost = %v; want %v", got.CostUSD, sum)
+	}
+}
+
+func TestRunUnpricedModelWarnsWithoutFailing(t *testing.T) {
+	parent := teamParent(t, usageLLM(1000, 500))
+	members := []Member{
+		{Model: "hantu", Profile: profileFor("a")},
+		{Model: "murah", Profile: profileFor("b")},
+	}
+	got, err := Run(context.Background(), parent, members, Config{MaxParallel: 2, MemberTimeout: time.Second, Cost: priceTable(t)}, nil)
+	if err != nil {
+		t.Fatalf("an unpriced model must not fail the run: %v", err)
+	}
+	if got.Members[0].Err != nil {
+		t.Fatalf("unpriced member failed: %v", got.Members[0].Err)
+	}
+	if got.Members[0].CostUSD != nil {
+		t.Fatalf("unpriced member cost = %v; want nil", *got.Members[0].CostUSD)
+	}
+	if got.Members[1].CostUSD == nil {
+		t.Fatal("priced member cost is nil")
+	}
+	if len(got.Warnings) != 1 || !strings.Contains(got.Warnings[0], "hantu") {
+		t.Fatalf("warnings = %v", got.Warnings)
+	}
+	if got.CostUSD == nil || !closeEnough(*got.CostUSD, *got.Members[1].CostUSD) {
+		t.Fatalf("total = %v; want only the priced member", got.CostUSD)
+	}
+}
+
+func TestRunWithoutPriceTableLeavesCostNil(t *testing.T) {
+	parent := teamParent(t, usageLLM(1000, 500))
+	got, err := Run(context.Background(), parent, []Member{{Model: "murah", Profile: profileFor("a")}}, Config{MaxParallel: 1, MemberTimeout: time.Second}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.CostUSD != nil || got.Members[0].CostUSD != nil {
+		t.Fatal("cost was computed without a price table")
+	}
+	if len(got.Warnings) != 0 {
+		t.Fatalf("warnings = %v", got.Warnings)
 	}
 }
 

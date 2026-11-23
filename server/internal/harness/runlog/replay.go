@@ -17,8 +17,12 @@ type Projection struct {
 	Members          []ProjectedMember
 	PromptTokens     int
 	CompletionTokens int
-	Structured       json.RawMessage
-	Decision         string
+	// CostUSD sums the priced model calls; CostKnown is false when no call
+	// carried a price, so an unpriced run is not read as free.
+	CostUSD    float64
+	CostKnown  bool
+	Structured json.RawMessage
+	Decision   string
 }
 
 // ProjectedMember is one member's rebuilt outcome.
@@ -26,6 +30,8 @@ type ProjectedMember struct {
 	Name             string
 	PromptTokens     int
 	CompletionTokens int
+	CostUSD          float64
+	CostKnown        bool
 	Content          string
 	Structured       json.RawMessage
 }
@@ -53,6 +59,12 @@ func Project(events []services.RunLogEvent) Projection {
 			m := p.member(member)
 			m.PromptTokens += call.PromptTokens
 			m.CompletionTokens += call.CompletionTokens
+			if call.CostUSD != nil {
+				p.CostUSD += *call.CostUSD
+				p.CostKnown = true
+				m.CostUSD += *call.CostUSD
+				m.CostKnown = true
+			}
 		case EventTypeToolResult:
 			var result ToolResult
 			_ = json.Unmarshal(event.Payload, &result)

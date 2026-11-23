@@ -8,33 +8,48 @@ import (
 	"time"
 
 	"hsg/internal/harness/agentloop"
+	"hsg/internal/harness/cost"
 	"hsg/internal/harness/profile"
 	"hsg/internal/harness/scope"
 	"hsg/internal/harness/services"
 )
 
 type Member struct {
+	// Model is the priced model this member runs on. It is separate from the
+	// profile because a profile describes behaviour, not deployment.
+	Model   string
 	Profile profile.Profile
 	Input   services.RunRequest
 }
 
 type MemberResult struct {
 	Name    string
+	Model   string
 	Outcome services.Outcome
 	Err     error
 	ErrCode string
+	// CostUSD is nil when the member had no priced model, so an unpriced run
+	// never looks like a free one.
+	CostUSD *float64
 }
 
 type Config struct {
 	MaxParallel   int
 	MemberTimeout time.Duration
+	// Cost prices member usage. A nil table disables accounting and leaves
+	// every cost nil.
+	Cost *cost.Table
 }
 
 type Result struct {
 	Members          []MemberResult
 	PromptTokens     int
 	CompletionTokens int
-	Duration         time.Duration
+	// CostUSD is the sum of priced members, or nil when none could be priced.
+	CostUSD *float64
+	// Warnings lists members that could not be priced. They never fail the run.
+	Warnings []string
+	Duration time.Duration
 }
 
 func Run(ctx context.Context, parent *scope.Scope, members []Member, cfg Config, sink services.Sink) (Result, error) {
@@ -66,16 +81,16 @@ func Run(ctx context.Context, parent *scope.Scope, members []Member, cfg Config,
 			}
 			close(jobs)
 			wg.Wait()
-			return aggregate(results, time.Since(started)), nil
+			return aggregate(results, time.Since(started), cfg.Cost), nil
 		}
 	}
 	close(jobs)
 	wg.Wait()
-	return aggregate(results, time.Since(started)), nil
+	return aggregate(results, time.Since(started), cfg.Cost), nil
 }
 
 func runMember(parentCtx context.Context, parent *scope.Scope, member Member, timeout time.Duration, sink services.Sink) MemberResult {
-	result := MemberResult{Name: member.Profile.Name}
+	result := MemberResult{Name: member.Profile.Name, Model: member.Model}
 	ctx, cancel := context.WithTimeout(parentCtx, timeout)
 	defer cancel()
 	child, err := profile.MountProfile(parent, member.Profile)
@@ -113,11 +128,41 @@ func runMember(parentCtx context.Context, parent *scope.Scope, member Member, ti
 	return result
 }
 
-func aggregate(results []MemberResult, duration time.Duration) Result {
+// aggregate sums usage and prices each member. Outcome usage is already the
+// billed total for the member's run (the loop adds every attempt, including
+// failed ones, at call time), so pricing the outcome prices what was billed.
+func aggregate(results []MemberResult, duration time.Duration, table *cost.Table) Result {
 	total := Result{Members: results, Duration: duration}
 	for _, result := range results {
 		total.PromptTokens += result.Outcome.PromptTokens
 		total.CompletionTokens += result.Outcome.CompletionTokens
+	}
+	if table == nil {
+		return total
+	}
+	var sum float64
+	priced := 0
+	for i := range total.Members {
+		member := &total.Members[i]
+		if member.Model == "" {
+			total.Warnings = append(total.Warnings, fmt.Sprintf("member %q tidak memiliki model; biaya tidak dihitung", member.Name))
+			continue
+		}
+		amount, err := table.Cost(member.Model, cost.Usage{
+			PromptTokens:     member.Outcome.PromptTokens,
+			CompletionTokens: member.Outcome.CompletionTokens,
+		})
+		if err != nil {
+			total.Warnings = append(total.Warnings, err.Error())
+			continue
+		}
+		value := amount.USD
+		member.CostUSD = &value
+		sum += value
+		priced++
+	}
+	if priced > 0 {
+		total.CostUSD = &sum
 	}
 	return total
 }
