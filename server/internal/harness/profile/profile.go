@@ -92,8 +92,9 @@ func Hash(p Profile) string {
 		System     string
 		Tools      []string
 		Result     *services.ResultSpec
+		Preset     string
 		LoopConfig services.LoopConfig
-	}{p.System, names, p.Result, p.LoopConfig})
+	}{p.System, names, p.Result, p.Preset, p.LoopConfig})
 	if err != nil {
 		panic(err)
 	}
@@ -171,7 +172,17 @@ func MountProfile(parent *scope.Scope, p Profile) (*scope.Scope, error) {
 	if err := child.Provide(services.SystemPromptKey, p.System, nil); err != nil {
 		return nil, err
 	}
-	if err := child.Provide(services.ToolAllowlistKey, append([]string(nil), p.Tools...), nil); err != nil {
+	// The terminal submit tool is synthesized by this profile, so it must
+	// always be callable: an allowlist that only names p.Tools would deny the
+	// very call that finishes the run.
+	allow := append([]string(nil), p.Tools...)
+	if p.Result != nil {
+		if _, taken := registry.Lookup(p.Result.Name); taken {
+			return nil, fmt.Errorf("profile %q: result tool %q collides with a registry tool", p.Name, p.Result.Name)
+		}
+		allow = append(allow, p.Result.Name)
+	}
+	if err := child.Provide(services.ToolAllowlistKey, allow, nil); err != nil {
 		return nil, err
 	}
 	if err := child.Provide(services.LoopConfigKey, cfg, nil); err != nil {

@@ -30,8 +30,8 @@ func (l *loggedLLM) ChatStream(_ context.Context, _ []ai.Message, _ ai.ChatOptio
 
 type loggedTool struct{}
 
-func (loggedTool) Name() string        { return "submit" }
-func (loggedTool) Description() string { return "submit" }
+func (loggedTool) Name() string        { return "lookup" }
+func (loggedTool) Description() string { return "lookup" }
 func (loggedTool) Parameters() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}`)
 }
@@ -60,7 +60,9 @@ func loggedProfile(name string) profile.Profile {
 	return profile.Profile{
 		Name:   name,
 		System: "sys",
-		Tools:  []string{"submit"},
+		// submit is synthesized by the profile itself, so it is not a registry
+		// entry and must not be listed here.
+		Tools:  nil,
 		Result: &services.ResultSpec{Name: "submit", Schema: json.RawMessage(`{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}`)},
 	}
 }
@@ -75,7 +77,7 @@ func TestSinkRecordsContiguousSeqAndReplays(t *testing.T) {
 	if err := store.CreateRun(context.Background(), services.RunRecord{ID: runID}); err != nil {
 		t.Fatal(err)
 	}
-	if err := runlog.RunStart(store, runID, member); err != nil {
+	if err := runlog.RunStart(context.Background(), store, runID, member); err != nil {
 		t.Fatal(err)
 	}
 	sink := runlog.Sink(context.Background(), store, runID, member)
@@ -84,7 +86,7 @@ func TestSinkRecordsContiguousSeqAndReplays(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := runlog.RunEnd(store, runID, member, "ok"); err != nil {
+	if err := runlog.RunEnd(context.Background(), store, runID, member, "ok"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -109,6 +111,11 @@ func TestSinkRecordsContiguousSeqAndReplays(t *testing.T) {
 	}
 	if types[0] != runlog.EventTypeRunStart || types[len(types)-1] != runlog.EventTypeRunEnd {
 		t.Fatalf("missing lifecycle events: %v", types)
+	}
+	// The column is NOT NULL and jsonb-typed: an empty or null payload would
+	// be rejected by Postgres, so every lifecycle row is a JSON object.
+	if got := string(events[0].Payload); got != "{}" {
+		t.Fatalf("run/start payload = %q, want {}", got)
 	}
 	foundModel, foundToolResult, foundStructured := false, false, false
 	for _, typ := range types {
@@ -185,6 +192,37 @@ func TestSinkStripsPromptTextByDefault(t *testing.T) {
 	}
 	if logged.Prompt != "secret prompt" {
 		t.Fatalf("opt-in prompt missing: %q", logged.Prompt)
+	}
+}
+
+func TestSinkKeepsToolCallArguments(t *testing.T) {
+	store := runlog.NewMemory()
+	runID := "00000000-0000-0000-0000-00000000000c"
+	if err := store.CreateRun(context.Background(), services.RunRecord{ID: runID}); err != nil {
+		t.Fatal(err)
+	}
+	sink := runlog.Sink(context.Background(), store, runID, "")
+	args := `{"q":"kucing"}`
+	payload, err := json.Marshal(runlog.ToolCall{Name: "lookup", Args: args, CallID: "call-7"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := sink(services.AIEvent{Type: "tool_start", ToolName: "lookup", ToolCall: "call-7", Payload: payload}); err != nil {
+		t.Fatal(err)
+	}
+	events, err := store.Events(context.Background(), runID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Type != runlog.EventTypeToolCall {
+		t.Fatalf("events = %+v", events)
+	}
+	var got runlog.ToolCall
+	if err := json.Unmarshal(events[0].Payload, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Name != "lookup" || got.Args != args || got.CallID != "call-7" {
+		t.Fatalf("payload = %+v; arguments lost", got)
 	}
 }
 

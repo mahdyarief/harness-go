@@ -23,7 +23,10 @@ import (
 type Policy struct {
 	AllowedHosts []string
 	AllowPrivate bool
-	Timeout      time.Duration
+	// AllowPlainHTTP permits http toward private targets, which still need
+	// AllowPrivate. Public targets always require https.
+	AllowPlainHTTP bool
+	Timeout        time.Duration
 }
 
 // Error is a sanitized policy or transport rejection. Code is a stable,
@@ -92,7 +95,8 @@ func New(policy Policy, target string) (string, *http.Transport, error) {
 	for i := range ips {
 		ips[i] = ips[i].Unmap()
 	}
-	if err != nil || !ValidAddresses(ips, policy.AllowPrivate, u.Scheme == "http") {
+	plainRejected := u.Scheme == "http" && !policy.AllowPlainHTTP
+	if err != nil || !ValidAddresses(ips, policy.AllowPrivate, plainRejected) {
 		return "", nil, badRequest
 	}
 	address := net.JoinHostPort(host, port)

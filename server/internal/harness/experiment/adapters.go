@@ -52,7 +52,6 @@ func ProfileArm(name string, cfg ProfileArmConfig) (Arm, error) {
 			RunID:            RunIDFrom(ctx),
 			PromptTokens:     out.PromptTokens,
 			CompletionTokens: out.CompletionTokens,
-			Latency:          time.Duration(out.DurationMs) * time.Millisecond,
 		}
 		if cfg.Cost != nil && cfg.Model != "" {
 			if amount, costErr := cfg.Cost.Cost(cfg.Model, cost.Usage{
@@ -95,7 +94,6 @@ func TeamArm(name string, cfg TeamArmConfig) Arm {
 			PromptTokens:     result.PromptTokens,
 			CompletionTokens: result.CompletionTokens,
 			Cost:             result.CostUSD,
-			Latency:          result.Duration,
 		}
 		if err != nil {
 			return ArmResult{Stats: stats}, err

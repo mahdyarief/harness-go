@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -118,10 +119,10 @@ func (r *RunLogRepository) CreateRun(ctx context.Context, run services.RunRecord
 		startedAt = run.StartedAt
 	}
 	_, err = tx.ExecContext(ctx, `
-		INSERT INTO runs (id, tenant_id, parent_run_id, profile_name, profile_hash, model, config_hash, status, started_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+		INSERT INTO runs (id, tenant_id, parent_run_id, profile_name, profile_hash, model, model_version, config_hash, status, started_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
 		id, tenant, parentAny,
-		run.ProfileName, run.ProfileHash, run.Model, run.ConfigHash,
+		run.ProfileName, run.ProfileHash, run.Model, run.ModelVersion, run.ConfigHash,
 		status, startedAt)
 	if err != nil {
 		return err
@@ -151,10 +152,16 @@ func (r *RunLogRepository) AppendEvent(ctx context.Context, event services.RunLo
 	if at.IsZero() {
 		at = time.Now().UTC()
 	}
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO run_events (run_id, seq, member, type, payload, at)
+	// An empty or null payload would break the NOT NULL / jsonb object rules;
+	// every event is a JSON object by contract.
+	payload := event.Payload
+	if len(payload) == 0 || string(payload) == "null" {
+		payload = json.RawMessage("{}")
+	}
+	_, err = tx.ExecContext(ctx,
+		`INSERT INTO run_events (run_id, seq, member, type, payload, at)
 		VALUES ($1,$2,$3,$4,$5,$6)`,
-		runID, seq, event.Member, event.Type, event.Payload, at)
+		runID, seq, event.Member, event.Type, payload, at)
 	if err != nil {
 		return err
 	}

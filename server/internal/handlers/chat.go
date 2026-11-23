@@ -16,6 +16,7 @@ import (
 	"hsg/internal/app"
 	"hsg/internal/dtos"
 	harnesspkg "hsg/internal/harness"
+	"hsg/internal/harness/runlog"
 	"hsg/internal/harness/services"
 	"hsg/internal/lib"
 	"hsg/internal/lib/agent"
@@ -35,6 +36,86 @@ type chatHandler struct {
 // code while the harness driver stays swappable.
 type turnRunner interface {
 	Run(ctx context.Context, messages []ai.Message, sink agent.Sink) (agent.Outcome, error)
+}
+
+// recordedRunner finishes the run row after the loop returns, whatever the
+// transport: the stream path has no other place where the outcome is known.
+type recordedRunner struct {
+	inner turnRunner
+	rec   *runLogRecorder
+}
+
+func (r *recordedRunner) Run(ctx context.Context, messages []ai.Message, sink agent.Sink) (agent.Outcome, error) {
+	out, err := r.inner.Run(ctx, messages, sink)
+	r.rec.finish(ctx, out, err)
+	return out, err
+}
+
+// runLogRecorder owns one run row. It is nil when the log is unavailable, so
+// chat keeps working in tests and single-tenant deployments.
+type runLogRecorder struct {
+	repo   *repositories.RunLogRepository
+	id     string
+	tenant uuid.UUID
+}
+
+// beginRun creates the run row and returns its sink. Failures are logged, not
+// returned: the log is an audit feature, never a reason to fail a turn.
+func (h *chatHandler) beginRun(c fiber.Ctx, tenant models.ChatScope, model string) (*runLogRecorder, services.Sink) {
+	if h.app.TenantDB == nil || tenant.TenantID == uuid.Nil {
+		return nil, nil
+	}
+	id, err := uuid.NewV7()
+	if err != nil {
+		slog.Warn("run log id unavailable", "error", err)
+		return nil, nil
+	}
+	rec := &runLogRecorder{
+		repo:   repositories.NewRunLogRepository(h.app.TenantDB),
+		id:     id.String(),
+		tenant: tenant.TenantID,
+	}
+	base := lib.WithTenant(context.WithoutCancel(c.Context()), tenant.TenantID)
+	ctx, cancel := context.WithTimeout(base, 5*time.Second)
+	defer cancel()
+	if err := rec.repo.CreateRun(ctx, services.RunRecord{
+		ID:          rec.id,
+		TenantID:    tenant.TenantID.String(),
+		ProfileName: "chat",
+		Model:       model,
+		Status:      "running",
+		StartedAt:   time.Now().UTC(),
+	}); err != nil {
+		slog.Warn("run log unavailable", "error", err)
+		return nil, nil
+	}
+	if err := runlog.RunStart(ctx, rec.repo, rec.id, ""); err != nil {
+		slog.Warn("run start event failed", "error", err)
+	}
+	return rec, runlog.Sink(base, rec.repo, rec.id, "", runlog.SinkOpts{Model: model})
+}
+
+func (r *runLogRecorder) finish(ctx context.Context, out agent.Outcome, runErr error) {
+	status := "completed"
+	if runErr != nil {
+		status = "failed"
+	}
+	base := lib.WithTenant(context.WithoutCancel(ctx), r.tenant)
+	ctx, cancel := context.WithTimeout(base, 5*time.Second)
+	defer cancel()
+	// The projection reads the terminal status from run/end, so write the
+	// event before the row update.
+	if err := runlog.RunEnd(ctx, r.repo, r.id, "", status); err != nil {
+		slog.Warn("run end event failed", "error", err)
+	}
+	if err := r.repo.FinishRun(ctx, r.id, services.RunCompletion{
+		Status:           status,
+		PromptTokens:     out.PromptTokens,
+		CompletionTokens: out.CompletionTokens,
+		EndedAt:          time.Now().UTC(),
+	}); err != nil {
+		slog.Warn("run log finish failed", "error", err)
+	}
 }
 
 func NewChatHandler(a *app.Application) *chatHandler { return &chatHandler{app: a} }
@@ -442,11 +523,23 @@ func (h *chatHandler) Turn(c fiber.Ctx) error {
 	registry := h.toolRegistry(uid, tenant, search, needsWebSearch, needsKnowledgeSearch, session)
 	mounted, err := harnesspkg.Mount(gw, registry, harnesspkg.MountConfig{
 		LoopConfig: services.LoopConfig{ForceToolCall: forcedTool},
+		// Both kinds exist in the chat toolset: DOCUMENT from knowledge
+		// retrieval and RULE from the declarative engine when it is mounted.
+		EvidenceKinds: []string{"DOCUMENT", "RULE"},
 	})
 	if err != nil {
 		return err
 	}
-	runner := harnesspkg.NewRunner(mounted)
+	// The run row is created last, so a mount failure cannot leave a row
+	// stuck in "running".
+	recorder, logSink := h.beginRun(c, tenant, gw.Model())
+	var runner turnRunner = harnesspkg.NewRunner(mounted)
+	if logSink != nil {
+		runner = harnesspkg.NewRunnerWithLog(mounted, logSink)
+	}
+	if recorder != nil {
+		runner = &recordedRunner{inner: runner, rec: recorder}
+	}
 
 	if body.WantsStream() {
 		return h.stream(c, runner, messages, uid, tenant, session)

@@ -112,6 +112,11 @@ func (g *guardedTool) approve(ctx context.Context, call services.ToolInvocation,
 	if !ok || answer == nil {
 		return services.PreDeny("alat "+call.Name+" memerlukan persetujuan tetapi tidak ada penjawab", CodeApprovalUnavailable)
 	}
+	if g.cfg.ApprovalMode == "wait" && g.cfg.ApprovalTimeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, g.cfg.ApprovalTimeout)
+		defer cancel()
+	}
 	approved, err := answer(ctx, call)
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {

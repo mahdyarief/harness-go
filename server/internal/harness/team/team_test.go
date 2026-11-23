@@ -30,8 +30,10 @@ func (m *memberLLM) ChatStream(ctx context.Context, messages []ai.Message, opts 
 
 type memberTool struct{}
 
-func (memberTool) Name() string        { return "submit" }
-func (memberTool) Description() string { return "submit result" }
+// The registry tool must not share a name with the profile result tool: a
+// profile owns its submit tool, so a collision is a mount error.
+func (memberTool) Name() string        { return "lookup" }
+func (memberTool) Description() string { return "lookup" }
 func (memberTool) Parameters() json.RawMessage {
 	return json.RawMessage(`{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}`)
 }
@@ -39,7 +41,7 @@ func (memberTool) ReadOnly() bool { return true }
 func (memberTool) Execute(context.Context, json.RawMessage) (agent.ToolResult, error) {
 	return agent.ToolResult{}, nil
 }
-func (memberTool) Terminal() bool { return true }
+func (memberTool) Terminal() bool { return false }
 
 func teamParent(t *testing.T, llm services.LLM) *scope.Scope {
 	t.Helper()
@@ -62,9 +64,11 @@ func submitLLM(_ context.Context, _ []ai.Message, _ ai.ChatOptions, _ func(ai.St
 
 func TestRunTimesOutOneMemberWithoutCancelingOthers(t *testing.T) {
 	llm := &memberLLM{fn: func(ctx context.Context, messages []ai.Message, _ ai.ChatOptions, _ func(ai.StreamDelta) error) (ai.ChatResult, error) {
-		if messages[0].Content == "slow" {
-			<-ctx.Done()
-			return ai.ChatResult{}, ctx.Err()
+		for _, message := range messages {
+			if message.Content == "slow" {
+				<-ctx.Done()
+				return ai.ChatResult{}, ctx.Err()
+			}
 		}
 		return submitLLM(ctx, nil, ai.ChatOptions{}, nil)
 	}}
@@ -73,11 +77,13 @@ func TestRunTimesOutOneMemberWithoutCancelingOthers(t *testing.T) {
 	slow.System = "slow"
 	members := []Member{{Profile: slow}, {Profile: profileFor("fast-a")}, {Profile: profileFor("fast-b")}}
 	started := time.Now()
-	got, err := Run(context.Background(), parent, members, Config{MaxParallel: 3, MemberTimeout: 50 * time.Millisecond}, nil)
+	// The timeout is shared by every member, so it must be generous enough
+	// that the fake fast paths finish even on a slow instrumented Windows run.
+	got, err := Run(context.Background(), parent, members, Config{MaxParallel: 3, MemberTimeout: time.Second}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if elapsed := time.Since(started); elapsed < 45*time.Millisecond || elapsed > 500*time.Millisecond {
+	if elapsed := time.Since(started); elapsed < 900*time.Millisecond || elapsed > 3*time.Second {
 		t.Fatalf("elapsed %v", elapsed)
 	}
 	if len(got.Members) != 3 || got.Members[0].ErrCode != "AGENT_TIMEOUT" || got.Members[1].Err != nil || got.Members[2].Err != nil {
@@ -261,6 +267,27 @@ func TestRunWithoutPriceTableLeavesCostNil(t *testing.T) {
 	}
 	if len(got.Warnings) != 0 {
 		t.Fatalf("warnings = %v", got.Warnings)
+	}
+}
+
+func TestMemberDurationIsRecordedPerMember(t *testing.T) {
+	llm := &memberLLM{fn: func(_ context.Context, _ []ai.Message, _ ai.ChatOptions, _ func(ai.StreamDelta) error) (ai.ChatResult, error) {
+		time.Sleep(5 * time.Millisecond)
+		return submitLLM(context.Background(), nil, ai.ChatOptions{}, nil)
+	}}
+	result, err := Run(context.Background(), teamParent(t, llm),
+		[]Member{{Profile: profileFor("a")}, {Profile: profileFor("b")}},
+		Config{MaxParallel: 1, MemberTimeout: time.Second}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, member := range result.Members {
+		if member.Duration < 5*time.Millisecond {
+			t.Fatalf("%s duration = %s; want at least the simulated work", member.Name, member.Duration)
+		}
+		if member.Duration > result.Duration {
+			t.Fatalf("%s duration = %s exceeds the team duration %s", member.Name, member.Duration, result.Duration)
+		}
 	}
 }
 

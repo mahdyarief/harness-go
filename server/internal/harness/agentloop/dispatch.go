@@ -98,7 +98,9 @@ func (l *defaultLoop) dispatch(ctx context.Context, tools services.Tools, calls 
 	out.ToolCalls += len(jobs)
 
 	for _, j := range jobs {
-		if err := sink(services.AIEvent{Type: "tool_start", ToolName: j.tool.Name(), ToolCall: calls[j.index].ID}); err != nil {
+		call := calls[j.index]
+		payload, _ := json.Marshal(runlog.ToolCall{Name: j.tool.Name(), Args: call.Function.Arguments, CallID: call.ID})
+		if err := sink(services.AIEvent{Type: "tool_start", ToolName: j.tool.Name(), ToolCall: call.ID, Payload: payload}); err != nil {
 			return nil, nil, nil, 0, err
 		}
 	}

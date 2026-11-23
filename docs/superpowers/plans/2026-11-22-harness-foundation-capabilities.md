@@ -18,7 +18,7 @@
 - `lib/ai` (gateway), `lib/kb` (Hybrid RAG)
 - PostgreSQL 18 + RLS per tenant
 
-**Status: NOT STARTED** (planned 2026-11-22). Tick boxes and add commit hashes to an "Execution status" section as tasks land.
+**Status: DONE** (implemented 2026-11-23, review fixes 2026-11-24). See "Execution status" at the end of this file.
 
 ---
 
@@ -432,3 +432,25 @@ Tasks 8–12 can run in parallel after Phase 1. Task 14 needs 4, 5, 8 and 11.
 | 10 KG, tariff, anomaly | domain tools; anomaly through Task 9 |
 | 11 three-arm evaluation | Task 14 (domain supplies only the dataset and arm definitions) |
 | 12 reproducibility + redaction | Tasks 11, 12 (domain supplies the identifier patterns) |
+
+## Execution status
+
+All 14 tasks landed on `main` between `90321ee` and `7f942cd`; the 2026-11-24 review fix series follows in `FIX`.
+
+| Task | Commit |
+|---|---|
+| 1 JSON schema subset | `75ef0f3`, `50e6eef`, `1bc020c` |
+| 2 structured terminal + submit | `efbfb21`, `465d5af` |
+| 3 profiles | `cf5973e` |
+| 4 team + reducers | `651d6fa`, `45705b8`, `5d4f4b8`, `2ce2f52`, `a721134` |
+| 5 run log | `19315fe` |
+| 6 evidence grounding | `18ca76e` |
+| 7 review inbox | `441ae07` |
+| 8 declarative rule engine | `32f2aad` |
+| 9 egress HTTP tool | `fd98a7c`, `5031367` |
+| 10 KB retrieval filters | `e06a1a5` |
+| 11 temperature/seed + record/replay | `1d8eea1` |
+| 12 redact + transform | `d038532` |
+| 13 cost accounting | `8152bd0` |
+| 14 experiment harness | `7f942cd` |
+| review fixes (wiring, metadata, replay) | `FIX` |

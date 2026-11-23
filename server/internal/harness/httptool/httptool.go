@@ -73,9 +73,10 @@ func New(spec Spec) (services.Tool, error) {
 		return nil, fmt.Errorf("httptool: metode %q tidak didukung", spec.Method)
 	}
 	policy := egress.Policy{
-		AllowedHosts: spec.AllowedHosts,
-		AllowPrivate: spec.AllowPrivate,
-		Timeout:      spec.Timeout,
+		AllowedHosts:   spec.AllowedHosts,
+		AllowPrivate:   spec.AllowPrivate,
+		AllowPlainHTTP: spec.AllowPlainHTTP,
+		Timeout:        spec.Timeout,
 	}
 	_, transport, err := egress.New(policy, spec.URL)
 	if err != nil {

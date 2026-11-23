@@ -159,6 +159,41 @@ func TestMountProfileRejectsUnknownTool(t *testing.T) {
 	}
 }
 
+func TestMountProfileAllowsItsResultTool(t *testing.T) {
+	root := scope.New(nil)
+	if err := root.Provide(services.AgentRegistryKey, agent.NewRegistry(testTool{name: "read"}), nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := root.Provide(services.LoopConfigKey, services.LoopConfig{}, nil); err != nil {
+		t.Fatal(err)
+	}
+	result := &services.ResultSpec{
+		Name:   "submit",
+		Schema: json.RawMessage(`{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"]}`),
+	}
+	child, err := MountProfile(root, Profile{Name: "writer", Tools: []string{"read"}, Result: result})
+	if err != nil {
+		t.Fatal(err)
+	}
+	mounted, ok := scope.Require(child, services.ToolsKey)
+	if !ok {
+		t.Fatal("child tools missing")
+	}
+	if _, ok := mounted.Lookup("submit"); !ok {
+		t.Fatal("terminal result tool was not exposed to the child")
+	}
+	allow, ok := scope.Require(child, services.ToolAllowlistKey)
+	if !ok {
+		t.Fatal("allowlist missing")
+	}
+	for _, name := range allow {
+		if name == "submit" {
+			return
+		}
+	}
+	t.Fatalf("allowlist %v omits the terminal result tool", allow)
+}
+
 type testLLM struct{}
 
 func (*testLLM) MaxTokens() int { return 1024 }

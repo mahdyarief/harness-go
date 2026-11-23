@@ -94,9 +94,12 @@ func runBenchmark(ctx context.Context, queries []string, iterations, concurrency
 	sort.Slice(latencies, func(i, j int) bool { return latencies[i] < latencies[j] })
 	report.ElapsedMS = float64(elapsed) / float64(time.Millisecond)
 	report.P50MS, report.P95MS, report.P99MS = percentile(latencies, .5), percentile(latencies, .95), percentile(latencies, .99)
-	if elapsed > 0 {
-		report.QPS = float64(report.Successes) / elapsed.Seconds()
+	// A very fast run can finish below the platform clock's resolution,
+	// reporting a zero interval. Floor it so QPS stays finite.
+	if elapsed <= 0 {
+		elapsed = time.Microsecond
 	}
+	report.QPS = float64(report.Successes) / elapsed.Seconds()
 	report.Cancelled = ctx.Err() != nil
 	return report
 }

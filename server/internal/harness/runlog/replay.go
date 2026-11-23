@@ -82,6 +82,9 @@ func Project(events []services.RunLogEvent) Projection {
 			var decision ReduceDecision
 			_ = json.Unmarshal(event.Payload, &decision)
 			p.Decision = decision.Rule
+			if len(decision.Value) > 0 && string(decision.Value) != "null" {
+				p.Structured = decision.Value
+			}
 		}
 	}
 	return p

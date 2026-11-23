@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"hsg/internal/harness/evidence"
 )
 
 // Score is one precision/recall/F1 triple. Precision and recall are nil when
@@ -95,8 +97,20 @@ type ArmMetrics struct {
 type MetricsConfig struct {
 	LabelPath  string
 	OutputPath string
-	Ground     func(output json.RawMessage) (grounded bool, ok bool)
-	Agree      func(output, label json.RawMessage) (agree bool, ok bool)
+	// Ground overrides evidence-based grounding when set.
+	Ground func(output json.RawMessage) (grounded bool, ok bool)
+	// EvidenceKinds enables the built-in grounding measure: an item counts
+	// when the arm collected evidence of one of these kinds. It is ignored
+	// when Ground is set or the list is empty.
+	EvidenceKinds []string
+	// CitationPath, when set, makes grounding stricter: the output at that
+	// dot path must list refs, and every ref must appear in the run evidence.
+	// An empty path accepts any collected evidence as grounding the item.
+	CitationPath string
+	Agree        func(output, label json.RawMessage) (agree bool, ok bool)
+	// AgreeItem receives the dataset item id so a review-inbox adapter can
+	// compare against that item's decided result. It wins over Agree.
+	AgreeItem func(itemID string, output, label json.RawMessage) (agree bool, ok bool)
 }
 
 // Compute builds one ArmMetrics per arm, in the order the arms were given.
@@ -125,8 +139,8 @@ func computeArm(name string, rows []ItemResult, items map[string]Item, cfg Metri
 	}
 	m.Latency = latencyOf(rows)
 	m.Usage = usageOf(rows)
-	m.Grounding = groundingOf(rows, cfg.Ground)
-	m.Agreement = agreementOf(rows, items, cfg.Agree)
+	m.Grounding = groundingOf(rows, cfg)
+	m.Agreement = agreementOf(rows, items, cfg)
 	return m
 }
 
@@ -297,42 +311,129 @@ func usageOf(rows []ItemResult) Usage {
 	return u
 }
 
-func groundingOf(rows []ItemResult, ground func(json.RawMessage) (bool, bool)) Grounding {
-	g := Grounding{Measured: ground != nil}
-	if ground == nil {
-		return g
+func groundingOf(rows []ItemResult, cfg MetricsConfig) Grounding {
+	if cfg.Ground != nil {
+		g := Grounding{Measured: true}
+		for _, row := range rows {
+			if row.Err != "" || len(row.Output) == 0 {
+				continue
+			}
+			grounded, ok := cfg.Ground(row.Output)
+			if !ok {
+				continue
+			}
+			g.Items++
+			if grounded {
+				g.Grounded++
+			}
+		}
+		return finishGrounding(g)
 	}
+	if len(cfg.EvidenceKinds) == 0 {
+		return Grounding{}
+	}
+	registry := evidence.NewRegistry(cfg.EvidenceKinds...)
+	g := Grounding{Measured: true}
 	for _, row := range rows {
 		if row.Err != "" || len(row.Output) == 0 {
 			continue
 		}
-		grounded, ok := ground(row.Output)
-		if !ok {
-			continue
+		seen := map[string]bool{}
+		for _, item := range row.Stats.Evidence {
+			if registry.Valid(item.Kind) && item.Ref != "" {
+				seen[item.Ref] = true
+			}
+		}
+		grounded := len(seen) > 0
+		if cfg.CitationPath != "" {
+			refs, ok := citationRefs(row.Output, cfg.CitationPath)
+			grounded = ok && len(refs) > 0
+			for _, ref := range refs {
+				if !seen[ref] {
+					grounded = false
+					break
+				}
+			}
 		}
 		g.Items++
 		if grounded {
 			g.Grounded++
 		}
 	}
+	return finishGrounding(g)
+}
+
+func finishGrounding(g Grounding) Grounding {
 	if g.Items > 0 {
 		g.Rate = ptr(float64(g.Grounded) / float64(g.Items))
 	}
 	return g
 }
 
-func agreementOf(rows []ItemResult, items map[string]Item, agree func(json.RawMessage, json.RawMessage) (bool, bool)) Agreement {
-	a := Agreement{Measured: agree != nil}
-	if agree == nil {
+// citationRefs reads a list of citations at path. Each entry may be a string
+// ref or an object with a "ref" or "id" field.
+func citationRefs(raw json.RawMessage, path string) ([]string, bool) {
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var current any
+	if err := dec.Decode(&current); err != nil {
+		return nil, false
+	}
+	for _, part := range strings.Split(path, ".") {
+		obj, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = obj[part]
+		if !ok {
+			return nil, false
+		}
+	}
+	list, ok := current.([]any)
+	if !ok {
+		return nil, false
+	}
+	refs := make([]string, 0, len(list))
+	for _, entry := range list {
+		switch item := entry.(type) {
+		case string:
+			if item != "" {
+				refs = append(refs, item)
+			}
+		case map[string]any:
+			for _, key := range []string{"ref", "id"} {
+				if text, ok := item[key].(string); ok && text != "" {
+					refs = append(refs, text)
+					break
+				}
+			}
+		}
+	}
+	return refs, true
+}
+
+func agreementOf(rows []ItemResult, items map[string]Item, cfg MetricsConfig) Agreement {
+	a := Agreement{Measured: cfg.Agree != nil || cfg.AgreeItem != nil}
+	if !a.Measured {
 		return a
 	}
 	for _, row := range rows {
 		item, ok := items[row.ItemID]
-		if !ok || len(item.Label) == 0 || row.Err != "" || len(row.Output) == 0 {
+		if !ok || row.Err != "" || len(row.Output) == 0 {
 			continue
 		}
-		same, ok := agree(row.Output, item.Label)
-		if !ok {
+		// The human-agreement adapter supplies its own reference, so a
+		// dataset label is optional on that path.
+		if cfg.AgreeItem == nil && len(item.Label) == 0 {
+			continue
+		}
+		var same, compared bool
+		if cfg.AgreeItem != nil {
+			same, compared = cfg.AgreeItem(row.ItemID, row.Output, item.Label)
+		} else {
+			same, compared = cfg.Agree(row.Output, item.Label)
+		}
+		if !compared {
 			continue
 		}
 		a.Items++

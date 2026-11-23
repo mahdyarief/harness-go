@@ -361,6 +361,11 @@ type ToolInvocation struct {
 // makes every ask fail closed with APPROVAL_UNAVAILABLE, as in DSH.
 type ApprovalAnswer func(ctx context.Context, call ToolInvocation) (bool, error)
 
+// ReviewSink queues a finished outcome for human review when the caller's
+// policy flags it. Providing none queues nothing, and its error never fails
+// the run: review is an audit path, not a result path.
+type ReviewSink func(ctx context.Context, out Outcome) error
+
 // Preparer splits a tool call into DSH's prepare and dispatch phases. Prepare
 // runs every pre-execute check and returns either a denial (a *HarnessError
 // with a stable code) or a run function. The loop calls Prepare before it
@@ -376,11 +381,11 @@ var (
 	ToolsKey         = scope.NewKey[Tools]("tools")
 	AgentRegistryKey = scope.NewKey[*agent.Registry]("agentRegistry")
 	LLMKey           = scope.NewKey[LLM]("llm")
-	RunLogKey        = scope.NewKey[RunLog]("runLog")
 	SystemPromptKey  = scope.NewKey[string]("systemPrompt")
 	SandboxKey       = scope.NewKey[string]("sandboxPolicy")
 	ApprovalKey      = scope.NewKey[string]("approvalPolicy")
 	ToolAllowlistKey = scope.NewKey[[]string]("toolAllowlist")
-	// ApprovalAnswerKey is optional; see ApprovalAnswer.
+	// ApprovalAnswerKey and ReviewSinkKey are optional; see their types.
 	ApprovalAnswerKey = scope.NewKey[ApprovalAnswer]("approvalAnswer")
+	ReviewSinkKey     = scope.NewKey[ReviewSink]("reviewSink")
 )

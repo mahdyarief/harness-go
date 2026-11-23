@@ -50,8 +50,9 @@ type ModelCall struct {
 
 // ToolCall is the payload of a tool/call event.
 type ToolCall struct {
-	Name string `json:"name"`
-	Args string `json:"args"`
+	Name   string `json:"name"`
+	Args   string `json:"args"`
+	CallID string `json:"call_id,omitempty"`
 }
 
 // ToolResult is the payload of a tool/result event. Result is a compact
@@ -75,6 +76,9 @@ type StructuredSubmit struct {
 type ReduceDecision struct {
 	Rule    string `json:"rule"`
 	Matched bool   `json:"matched"`
+	// Value is the winning reduced result, when the producer has it. It lets a
+	// replay rebuild the final answer without a second source.
+	Value json.RawMessage `json:"value,omitempty"`
 }
 
 // ReviewDecided is the payload of a review/decided event. Result is a
@@ -96,6 +100,10 @@ type LogPrompts struct {
 // SinkOpts tunes the Sink.
 type SinkOpts struct {
 	Prompts LogPrompts
+	// Model and ModelVersion stamp every model/call row, because the loop does
+	// not know which model the gateway is configured with.
+	Model        string
+	ModelVersion string
 }
 
 // Sink converts harness AI events into RunLogEvent rows on the given store.
@@ -107,12 +115,12 @@ func Sink(ctx context.Context, store services.RunLog, runID, member string, opts
 	if store == nil {
 		panic("runlog: store must not be nil")
 	}
-	prompts := LogPrompts{}
+	options := SinkOpts{}
 	if len(opts) > 0 {
-		prompts = opts[0].Prompts
+		options = opts[0]
 	}
 	return func(event services.AIEvent) error {
-		row, ok := translate(event, prompts)
+		row, ok := translate(event, options)
 		if !ok {
 			return nil
 		}
@@ -129,7 +137,7 @@ func Sink(ctx context.Context, store services.RunLog, runID, member string, opts
 // translate maps one AI event to a durable run-log row. The boolean result is
 // false when the event is not a run-log event (transient deltas, budget and
 // notice signals, compaction).
-func translate(event services.AIEvent, prompts LogPrompts) (services.RunLogEvent, bool) {
+func translate(event services.AIEvent, options SinkOpts) (services.RunLogEvent, bool) {
 	// A caller that attached a typed body (model/call, tool/result,
 	// structured/submit, reduce/decision) passes it straight through.
 	if len(event.Payload) > 0 {
@@ -137,10 +145,17 @@ func translate(event services.AIEvent, prompts LogPrompts) (services.RunLogEvent
 		if typeName == "" {
 			typeName = "ai/event"
 		}
-		if typeName == EventTypeModelCall && !prompts.Enabled {
-			// Drop prompt text so the default log stays safe.
-			strip := struct {
+		// The loop's dispatch uses its own start event name; the durable log
+		// records it as tool/call.
+		if typeName == "tool_start" {
+			typeName = EventTypeToolCall
+		}
+		if typeName == EventTypeModelCall {
+			// Stamp the caller's model identity and drop prompt text unless
+			// prompts are explicitly enabled: the default log stays safe.
+			call := struct {
 				Model            string   `json:"model,omitempty"`
+				ModelVersion     string   `json:"model_version,omitempty"`
 				PromptTokens     int      `json:"prompt_tokens"`
 				CompletionTokens int      `json:"completion_tokens"`
 				CostUSD          *float64 `json:"cost_usd,omitempty"`
@@ -149,9 +164,17 @@ func translate(event services.AIEvent, prompts LogPrompts) (services.RunLogEvent
 				RequestHash      string   `json:"request_hash"`
 				Prompt           string   `json:"prompt,omitempty"`
 			}{}
-			_ = json.Unmarshal(event.Payload, &strip)
-			strip.Prompt = ""
-			safe, _ := json.Marshal(strip)
+			_ = json.Unmarshal(event.Payload, &call)
+			if call.Model == "" {
+				call.Model = options.Model
+			}
+			if call.ModelVersion == "" {
+				call.ModelVersion = options.ModelVersion
+			}
+			if !options.Prompts.Enabled {
+				call.Prompt = ""
+			}
+			safe, _ := json.Marshal(call)
 			return services.RunLogEvent{Type: typeName, Payload: safe}, true
 		}
 		return services.RunLogEvent{Type: typeName, Payload: event.Payload}, true
@@ -159,10 +182,14 @@ func translate(event services.AIEvent, prompts LogPrompts) (services.RunLogEvent
 
 	switch event.Type {
 	case "tool_start":
+		// Older producers only set ToolName/ToolCall; the loop's dispatch
+		// attaches the full typed payload and took the branch above.
 		payload, _ := json.Marshal(ToolCall{Name: event.ToolName, Args: event.ToolCall})
 		return services.RunLogEvent{Type: EventTypeToolCall, Payload: payload}, true
 	case EventTypeRunStart:
-		return services.RunLogEvent{Type: EventTypeRunStart, Payload: json.RawMessage("null")}, true
+		// The column is NOT NULL and must be a JSON object; an explicit null
+		// would violate both.
+		return services.RunLogEvent{Type: EventTypeRunStart, Payload: json.RawMessage("{}")}, true
 	case EventTypeRunEnd:
 		payload, _ := json.Marshal(map[string]string{"status": statusOf(event)})
 		return services.RunLogEvent{Type: EventTypeRunEnd, Payload: payload}, true
@@ -179,16 +206,16 @@ func statusOf(event services.AIEvent) string {
 }
 
 // RunStart writes a run/start event for a run.
-func RunStart(store services.RunLog, runID, member string) error {
-	return store.AppendEvent(context.Background(), services.RunLogEvent{
-		RunID: runID, Member: member, Type: EventTypeRunStart,
+func RunStart(ctx context.Context, store services.RunLog, runID, member string) error {
+	return store.AppendEvent(ctx, services.RunLogEvent{
+		RunID: runID, Member: member, Type: EventTypeRunStart, Payload: json.RawMessage("{}"),
 	})
 }
 
 // RunEnd writes a run/end event carrying the terminal status.
-func RunEnd(store services.RunLog, runID, member, status string) error {
+func RunEnd(ctx context.Context, store services.RunLog, runID, member, status string) error {
 	payload, _ := json.Marshal(map[string]string{"status": status})
-	return store.AppendEvent(context.Background(), services.RunLogEvent{
+	return store.AppendEvent(ctx, services.RunLogEvent{
 		RunID: runID, Member: member, Type: EventTypeRunEnd, Payload: payload,
 	})
 }

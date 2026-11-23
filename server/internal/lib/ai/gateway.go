@@ -53,6 +53,15 @@ func (g *Gateway) MaxTokens() int {
 	return g.config.MaxTokens
 }
 
+// Model returns the configured model name so a run log can record it without
+// duplicating deployment configuration at the call site.
+func (g *Gateway) Model() string {
+	if g == nil {
+		return ""
+	}
+	return g.config.Model
+}
+
 func NewGateway(c Config) (*Gateway, error) {
 	u, err := url.Parse(c.Endpoint)
 	if err != nil || u.Scheme != "https" || u.Opaque != "" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.ForceQuery || strings.Contains(c.Endpoint, "#") {

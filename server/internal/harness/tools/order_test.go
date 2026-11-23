@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"hsg/internal/harness/preset"
 	"hsg/internal/harness/scope"
@@ -116,5 +117,31 @@ func TestStrictPresetAsksTheApprovalAnswerer(t *testing.T) {
 				t.Fatalf("ran=%v want %v", tool.ran, tc.ran)
 			}
 		})
+	}
+}
+
+func TestApprovalWaitIsBoundedByTimeout(t *testing.T) {
+	s := mounted(t, "strict")
+	if err := s.Provide(services.ApprovalAnswerKey, func(ctx context.Context, _ services.ToolInvocation) (bool, error) {
+		<-ctx.Done()
+		return false, ctx.Err()
+	}, nil); err != nil {
+		t.Fatal(err)
+	}
+	tool := &writeTool{}
+	wrapped := tools.PipelineWithConfig(s, tool, services.LoopConfig{
+		ApprovalMode:    "wait",
+		ApprovalTimeout: 20 * time.Millisecond,
+	})
+	started := time.Now()
+	_, err := wrapped.Execute(context.Background(), json.RawMessage(`{}`))
+	if got := services.ErrorCode(err); got != tools.CodeApprovalUnavailable {
+		t.Fatalf("code=%q want %s", got, tools.CodeApprovalUnavailable)
+	}
+	if tool.ran {
+		t.Fatal("tool must not run when the approval wait expires")
+	}
+	if elapsed := time.Since(started); elapsed > time.Second {
+		t.Fatalf("wait did not honour its timeout: %s", elapsed)
 	}
 }

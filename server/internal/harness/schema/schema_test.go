@@ -2,7 +2,7 @@ package schema_test
 
 import (
 	"encoding/json"
-	"strings"
+	"errors"
 	"testing"
 
 	"hsg/internal/harness/schema"
@@ -131,9 +131,24 @@ func TestF5KeywordsPassAndFail(t *testing.T) {
 func TestCompileRejectsUnsupportedKeyword(t *testing.T) {
 	for _, keyword := range []string{"format", "description"} {
 		_, err := schema.Compile(json.RawMessage(`{"type":"object","properties":{"q":{"type":"string","` + keyword + `":"value"}}}`))
-		if err == nil || !strings.Contains(err.Error(), "SCHEMA_UNSUPPORTED") {
-			t.Errorf("keyword=%q err=%v; want SCHEMA_UNSUPPORTED", keyword, err)
+		if err == nil || !errors.Is(err, schema.ErrUnsupported) {
+			t.Errorf("keyword=%q err=%v; want ErrUnsupported", keyword, err)
 		}
+	}
+}
+
+func TestCompileIsCached(t *testing.T) {
+	raw := json.RawMessage(`{"type":"object","properties":{"q":{"type":"string","pattern":"^a+$"}}}`)
+	first, err := schema.Compile(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := schema.Compile(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatal("identical schema recompiled instead of reusing the cached value")
 	}
 }
 

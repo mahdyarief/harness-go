@@ -5,6 +5,7 @@ package schema
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"math/big"
 	"reflect"
 	"regexp"
+	"sync"
 )
 
 // supported lists the F5 keyword subset. Anything else fails compilation so an
@@ -53,7 +55,31 @@ type Violation struct {
 
 var errRoot = errors.New("schema: root must be an object")
 
+// ErrUnsupported reports a keyword outside the enforced subset. Callers test it
+// with errors.Is instead of matching the message.
+var ErrUnsupported = errors.New("SCHEMA_UNSUPPORTED")
+
+type compileResult struct {
+	schema *Schema
+	err    error
+}
+
+// Compiled schemas are immutable, so the same tool schema is compiled once and
+// shared. Without this, every dispatched call recompiled patterns and types.
+var compiledCache sync.Map
+
 func Compile(raw json.RawMessage) (*Schema, error) {
+	key := sha256.Sum256(raw)
+	if cached, ok := compiledCache.Load(key); ok {
+		result := cached.(compileResult)
+		return result.schema, result.err
+	}
+	schema, err := compile(raw)
+	compiledCache.Store(key, compileResult{schema: schema, err: err})
+	return schema, err
+}
+
+func compile(raw json.RawMessage) (*Schema, error) {
 	f, err := compileField(raw)
 	if err != nil {
 		return nil, fmt.Errorf("schema: %w", err)
@@ -71,7 +97,7 @@ func compileField(raw json.RawMessage) (*field, error) {
 	}
 	for key := range keys {
 		if !supported[key] {
-			return nil, fmt.Errorf("SCHEMA_UNSUPPORTED: keyword %q", key)
+			return nil, fmt.Errorf("%w: keyword %q", ErrUnsupported, key)
 		}
 	}
 	var spec struct {

@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"sync"
@@ -28,6 +29,8 @@ type MemberResult struct {
 	Outcome services.Outcome
 	Err     error
 	ErrCode string
+	// Duration is the member's own wall time, including a timeout.
+	Duration time.Duration
 	// CostUSD is nil when the member had no priced model, so an unpriced run
 	// never looks like a free one.
 	CostUSD *float64
@@ -39,6 +42,10 @@ type Config struct {
 	// Cost prices member usage. A nil table disables accounting and leaves
 	// every cost nil.
 	Cost *cost.Table
+	// ReduceName names the reducer rule that won, and optionally the reduced
+	// value. When set, Run emits reduce/decision so a replay can rebuild the
+	// same final result and the audit log records why.
+	ReduceName func(Result) (rule string, value json.RawMessage, ok bool)
 }
 
 type Result struct {
@@ -81,16 +88,41 @@ func Run(ctx context.Context, parent *scope.Scope, members []Member, cfg Config,
 			}
 			close(jobs)
 			wg.Wait()
-			return aggregate(results, time.Since(started), cfg.Cost), nil
+			total := aggregate(results, time.Since(started), cfg.Cost)
+			emitDecision(sink, cfg, total)
+			return total, nil
 		}
 	}
 	close(jobs)
 	wg.Wait()
-	return aggregate(results, time.Since(started), cfg.Cost), nil
+	total := aggregate(results, time.Since(started), cfg.Cost)
+	emitDecision(sink, cfg, total)
+	return total, nil
 }
 
-func runMember(parentCtx context.Context, parent *scope.Scope, member Member, timeout time.Duration, sink services.Sink) MemberResult {
-	result := MemberResult{Name: member.Profile.Name, Model: member.Model}
+// emitDecision records the winning reducer rule. It is best effort: a sink
+// error must never change the run's outcome.
+func emitDecision(sink services.Sink, cfg Config, result Result) {
+	if sink == nil || cfg.ReduceName == nil {
+		return
+	}
+	rule, value, ok := cfg.ReduceName(result)
+	if !ok {
+		return
+	}
+	payload, err := json.Marshal(map[string]any{
+		"rule": rule, "matched": true, "value": value,
+	})
+	if err != nil {
+		return
+	}
+	_ = sink(services.AIEvent{Type: "reduce/decision", Payload: payload})
+}
+
+func runMember(parentCtx context.Context, parent *scope.Scope, member Member, timeout time.Duration, sink services.Sink) (result MemberResult) {
+	started := time.Now()
+	defer func() { result.Duration = time.Since(started) }()
+	result = MemberResult{Name: member.Profile.Name, Model: member.Model}
 	ctx, cancel := context.WithTimeout(parentCtx, timeout)
 	defer cancel()
 	child, err := profile.MountProfile(parent, member.Profile)
