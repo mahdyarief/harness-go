@@ -101,7 +101,7 @@ func (l *defaultLoop) Run(ctx context.Context, req services.RunRequest, sink ser
 			out.DurationMs = int(l.now().Sub(started).Milliseconds())
 			return out, services.ErrTokenBudget
 		}
-		opts := ai.ChatOptions{Tools: specs, MaxTokens: remaining}
+		opts := ai.ChatOptions{Tools: specs, MaxTokens: remaining, Temperature: cfg.Temperature, Seed: cfg.Seed}
 		if turn == 0 && cfg.ForceToolCall != "" && toolExists(specs, cfg.ForceToolCall) {
 			opts.ToolChoice = cfg.ForceToolCall
 		}

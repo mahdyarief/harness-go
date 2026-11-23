@@ -67,6 +67,11 @@ type ChatOptions struct {
 	Tools     []ToolSpec
 	// ToolChoice is "auto", "none", "required", or a specific tool name.
 	ToolChoice string
+	// Temperature and Seed are sent only when set. A nil pointer keeps the
+	// provider default; sending zero would silently force greedy or seedless
+	// sampling on providers whose defaults differ.
+	Temperature *float64 `json:"temperature,omitempty"`
+	Seed        *int     `json:"seed,omitempty"`
 }
 
 type ChatResult struct {
@@ -196,6 +201,12 @@ func (g *Gateway) chatBody(messages []Message, opts ChatOptions, stream bool) ([
 	request := map[string]any{"model": g.config.Model, "max_tokens": maxTokens, "messages": messages}
 	if stream {
 		request["stream"] = true
+	}
+	if opts.Temperature != nil {
+		request["temperature"] = *opts.Temperature
+	}
+	if opts.Seed != nil {
+		request["seed"] = *opts.Seed
 	}
 	if len(opts.Tools) > 0 {
 		request["tools"] = opts.Tools

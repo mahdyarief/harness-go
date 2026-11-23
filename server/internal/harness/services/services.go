@@ -176,6 +176,10 @@ type LoopConfig struct {
 	// holds the citations, e.g. "evidence" or "result.evidence". Empty
 	// searches the whole submission.
 	EvidencePath string
+	// Temperature and Seed pin sampling when set. Nil keeps the provider
+	// default, which is what a profile that never mentions them expects.
+	Temperature *float64 `yaml:"temperature"`
+	Seed        *int     `yaml:"seed"`
 }
 
 type ResultSpec struct {
