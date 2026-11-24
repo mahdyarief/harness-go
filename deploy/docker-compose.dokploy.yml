@@ -1,0 +1,104 @@
+name: harness-go
+
+services:
+  harness-go-postgres:
+    container_name: harness-go-postgres
+    image: harness-go-postgres:pg18-pgvector
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: harness
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: harness_go
+    volumes:
+      - harness_go_pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harness -d harness_go"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - harness-go-internal
+
+  harness-go-api:
+    container_name: harness-go-api
+    image: harness-go-api:latest
+    build:
+      context: ..
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      harness-go-postgres:
+        condition: service_healthy
+    environment:
+      ENV: ${ENV:-staging}
+      DEBUG: ${DEBUG:-false}
+      PORT: "8080"
+      APP_NAME: ${APP_NAME:-harness-go}
+      APP_SECRET: ${APP_SECRET}
+      SUPER_USER_EMAIL: ${SUPER_USER_EMAIL}
+      SUPER_USER_PASSWORD: ${SUPER_USER_PASSWORD}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-*}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+      RATE_LIMIT_EXEMPT_IPS: ${RATE_LIMIT_EXEMPT_IPS:-}
+      DB_DSN: postgres://harness:${POSTGRES_PASSWORD}@harness-go-postgres:5432/harness_go?sslmode=disable
+      TENANT_DB_DSN: postgres://harness_tenant:${TENANT_DB_PASSWORD}@harness-go-postgres:5432/harness_go?sslmode=disable
+      LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:-}
+      LLM_ALLOWED_HOSTS: ${LLM_ALLOWED_HOSTS:-}
+      KB_STORAGE_DIR: /data/kb
+      EMBEDDING_WORKER_DB_DSN: ${EMBEDDING_WORKER_DB_DSN:-}
+      EMBEDDING_ALLOW_PRIVATE: ${EMBEDDING_ALLOW_PRIVATE:-false}
+      EMBEDDING_ALLOWED_HOSTS: ${EMBEDDING_ALLOWED_HOSTS:-}
+      EMBEDDING_MODEL_REVISION: ${EMBEDDING_MODEL_REVISION:-5617a9f61b028005a4858fdac845db406aefb181}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MAX_CONCURRENCY: ${EMBEDDING_MAX_CONCURRENCY:-1}
+    volumes:
+      - harness_go_kb_data:/data/kb
+    ports:
+      - "127.0.0.1:18432:8080"
+    networks:
+      - harness-go-internal
+      - dokploy-network
+    labels:
+      - traefik.enable=false
+
+  harness-go-embedding:
+    container_name: harness-go-embedding
+    image: harness-go-embedding:latest
+    build:
+      context: ./embedding
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      EMBEDDING_MODEL_REVISION: ${EMBEDDING_MODEL_REVISION:-5617a9f61b028005a4858fdac845db406aefb181}
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_MAX_CONCURRENCY: ${EMBEDDING_MAX_CONCURRENCY:-1}
+      EMBEDDING_CACHE_DIR: /models
+    volumes:
+      - harness_go_embedding_cache:/models
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 30s
+      timeout: 3s
+      start_period: 180s
+      retries: 5
+    networks:
+      - harness-go-internal
+
+volumes:
+  harness_go_pg_data:
+    name: harness-go-pg-data
+  harness_go_kb_data:
+    name: harness-go-kb-data
+  harness_go_embedding_cache:
+    name: harness-go-embedding-cache
+
+networks:
+  harness-go-internal:
+    name: harness-go-internal
+  dokploy-network:
+    external: true
