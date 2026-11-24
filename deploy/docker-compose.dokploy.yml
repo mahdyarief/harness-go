@@ -54,6 +54,9 @@ services:
       EMBEDDING_MODEL_REVISION: ${EMBEDDING_MODEL_REVISION:-5617a9f61b028005a4858fdac845db406aefb181}
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
       EMBEDDING_MAX_CONCURRENCY: ${EMBEDDING_MAX_CONCURRENCY:-1}
+      AUTH_BASE_URL: ${AUTH_BASE_URL:-https://harnessgo.nimb.us.ci}
+      FROM_ADDRESS: ${FROM_ADDRESS:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
     volumes:
       - harness_go_kb_data:/data/kb
     ports:
