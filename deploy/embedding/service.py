@@ -73,7 +73,6 @@ class DenseModel:
         self.model = SentenceTransformer(
             snapshot, revision=config.revision, trust_remote_code=False,
             local_files_only=True, cache_folder=config.cache_dir, device="cpu",
-            model_kwargs={"use_safetensors": True},
         )
         if self.model.get_sentence_embedding_dimension() != DIMENSIONS:
             raise RuntimeError("Invalid model dimensions")
