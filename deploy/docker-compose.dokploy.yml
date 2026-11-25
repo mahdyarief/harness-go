@@ -44,7 +44,7 @@ services:
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
       RATE_LIMIT_EXEMPT_IPS: ${RATE_LIMIT_EXEMPT_IPS:-}
       DB_DSN: postgres://harness:${POSTGRES_PASSWORD}@harness-go-postgres:5432/harness_go?sslmode=disable
-      TENANT_DB_DSN: postgres://harness_tenant:${TENANT_DB_PASSWORD}@harness-go-postgres:5432/harness_go?sslmode=disable
+      TENANT_DB_DSN: postgres://hsg_tenant:${TENANT_DB_PASSWORD}@harness-go-postgres:5432/harness_go?sslmode=disable
       LLM_ENCRYPTION_KEY: ${LLM_ENCRYPTION_KEY:-}
       LLM_ALLOWED_HOSTS: ${LLM_ALLOWED_HOSTS:-}
       KB_STORAGE_DIR: /data/kb
