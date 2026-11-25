@@ -64,8 +64,6 @@ services:
     networks:
       - harness-go-internal
       - dokploy-network
-    labels:
-      - traefik.enable=false
 
   harness-go-embedding:
     container_name: harness-go-embedding
