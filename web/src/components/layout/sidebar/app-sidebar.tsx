@@ -16,6 +16,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  SidebarSeparator,
   useSidebar,
 } from '@/components/ui/sidebar'
 import { getSidebarMenu } from '@/data/sidebar-menu'
@@ -78,7 +79,12 @@ export default function AppSidebar({ user, userError, onRetryUser, ...props }: A
         )}
       </SidebarHeader>
       <SidebarContent>
-        <NavMain title="Menu" items={menu.navMenu.overview} />
+        {menu.sections.map((section, index) => (
+          <React.Fragment key={section.title}>
+            {index > 0 && <SidebarSeparator />}
+            <NavMain title={section.title} items={section.items} />
+          </React.Fragment>
+        ))}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={userInfo} userError={userError} onRetryUser={onRetryUser} />

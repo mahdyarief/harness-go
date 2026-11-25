@@ -11,9 +11,9 @@ import {
   IconUsersGroup,
 } from '@tabler/icons-react'
 
-import type { NavMainItem, SidebarMenuData } from '@/types/menu'
+import type { NavMainItem, SidebarMenuData, SidebarMenuSection } from '@/types/menu'
 
-import { ROLES, type RoleName } from '@/lib/constants/auth'
+import { ROLES } from '@/lib/constants/auth'
 
 const NAV_DASHBOARD: NavMainItem = {
   title: 'Dashboard',
@@ -75,32 +75,23 @@ const NAV_AUDIT: NavMainItem = {
   items: [],
 }
 
-/** Menus by role. Only routes that actually exist are listed. */
-const MENUS: Record<RoleName, NavMainItem[]> = {
-  [ROLES.SUPER_USER]: [
-    NAV_DASHBOARD,
-    NAV_CHAT,
-    NAV_KNOWLEDGE,
-    NAV_TENANTS,
-    NAV_USERS,
-    NAV_LLM,
-    NAV_TOKENS,
-    NAV_AUDIT,
-    NAV_MASTER,
-  ],
-  [ROLES.USER]: [NAV_DASHBOARD, NAV_CHAT, NAV_KNOWLEDGE, NAV_TENANTS],
-}
+const sections = (...items: SidebarMenuSection[]): SidebarMenuSection[] => items
 
-const SIDEBAR_MENU: SidebarMenuData = {
-  navMenu: {
-    overview: MENUS[ROLES.SUPER_USER],
-  },
+const sectionsFor = (role: string): SidebarMenuSection[] => {
+  if (role === ROLES.SUPER_USER) {
+    return sections(
+      { title: 'Menu', items: [NAV_DASHBOARD, NAV_CHAT, NAV_KNOWLEDGE] },
+      {
+        title: 'Manajemen',
+        items: [NAV_TENANTS, NAV_USERS, NAV_MASTER, NAV_TOKENS, NAV_AUDIT],
+      },
+      { title: 'Platform', items: [NAV_LLM] },
+    )
+  }
+  return sections({ title: 'Menu', items: [NAV_DASHBOARD, NAV_CHAT, NAV_KNOWLEDGE, NAV_TENANTS] })
 }
 
 /** Menu for a role; unknown or missing roles fall back to the user menu. */
 export function getSidebarMenu(role?: string): SidebarMenuData {
-  const nav = MENUS[role as RoleName] ?? MENUS[ROLES.USER]
-  return { navMenu: { overview: nav } }
+  return { sections: sectionsFor(role ?? '') }
 }
-
-export { SIDEBAR_MENU }

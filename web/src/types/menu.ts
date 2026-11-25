@@ -14,10 +14,13 @@ export type NavMainItem = {
   items: NavSubItem[]
 }
 
+export type SidebarMenuSection = {
+  title: string
+  items: NavMainItem[]
+}
+
 export type SidebarMenuData = {
-  navMenu: {
-    overview: NavMainItem[]
-  }
+  sections: SidebarMenuSection[]
 }
 
 export type UserInfo = {
